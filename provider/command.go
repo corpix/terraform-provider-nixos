@@ -1,0 +1,144 @@
+package provider
+
+import (
+	"os"
+	"os/exec"
+	"strings"
+
+	"github.com/pkg/errors"
+)
+
+type (
+	Cmd struct {
+		*exec.Cmd
+		Env Environment
+	}
+	Command interface {
+		Command() (string, []string, []CommandOption)
+		Execute(result CommandResult) error
+		Close() error
+	}
+	CommandOption func(*Cmd)
+	CommandResult = interface{}
+
+	Environment map[string][]string
+)
+
+func CommandOptionEnv(env Environment) CommandOption {
+	return func(cmd *Cmd) {
+		cmd.Env = cmd.Env.With(env)
+	}
+}
+
+//
+
+func CommandExecute(command string, arguments []string, options ...CommandOption) ([]byte, error) {
+	cmd := &Cmd{
+		Cmd: exec.Command(command, arguments...),
+		// NOTE: serves the requirement of multiple
+		// CommandOptionEnv concatenation
+		Env: NewEnvironment(),
+	}
+	for _, option := range options {
+		option(cmd)
+	}
+
+	cmd.Cmd.Env = cmd.Env.Slice()
+	cmd.Cmd.Stderr = nil // NOTE: required to get process Stderr
+
+	output, err := cmd.Output()
+	if err != nil {
+		var stderr string
+		exiterr, ok := err.(*exec.ExitError)
+		if ok {
+			stderr = string(exiterr.Stderr)
+		}
+
+		return nil, errors.Wrapf(
+			err, "subcommand %q exited with: %s",
+			command+" "+strings.Join(arguments, " "),
+			stderr,
+		)
+	}
+	return output, nil
+}
+
+func CommandExecuteUnmarshal(command string, arguments []string, unmarshaler Unmarshaler, result interface{}, options ...CommandOption) error {
+	output, err := CommandExecute(command, arguments)
+	if err != nil {
+		return err
+	}
+
+	if result != nil {
+		if unmarshaler == nil {
+			unmarshaler = NewUnmarshalerPassthrough()
+		}
+
+		err = unmarshaler.Unmarshal(output, &result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+//
+
+// TODO: by default we expect "Add" semantics
+// but at some point in time we may need "Set" semantics
+// so it probably should be injectable
+func (e Environment) With(ee Environment) Environment {
+	xs := e.Copy()
+	for k, v := range ee {
+		xs.Add(k, v...)
+	}
+	return xs
+}
+
+func (e Environment) Copy() Environment {
+	xs := make(Environment, len(e))
+	for k, v := range e {
+		xs[k] = make([]string, len(v))
+		copy(xs[k], v)
+	}
+	return xs
+}
+
+func (e Environment) Set(key string, value ...string) Environment {
+	e[key] = value
+	return e
+}
+
+func (e Environment) Add(key string, value ...string) Environment {
+	e[key] = append(e[key], value...)
+	return e
+}
+
+func (e Environment) Del(key string) Environment {
+	delete(e, key)
+	return e
+}
+
+func (e Environment) Slice() []string {
+	xs := make([]string, len(e))
+	n := 0
+	for k := range e {
+		xs[n] = k + "=" + strings.Join(e[k], " ")
+		n++
+	}
+	return xs
+}
+
+func NewEnvironment(vars ...map[string][]string) Environment {
+	e := Environment{}
+	for _, kv := range os.Environ() {
+		xs := strings.SplitN(kv, "=", 2)
+		e.Set(xs[0], xs[1])
+	}
+	for _, vs := range vars {
+		for k, v := range vs {
+			e.Set(k, v...)
+		}
+	}
+	return e
+}
