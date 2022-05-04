@@ -45,6 +45,13 @@ func CommandExecute(command string, arguments []string, options ...CommandOption
 
 	cmd.Cmd.Env = cmd.Env.Slice()
 	cmd.Cmd.Stderr = nil // NOTE: required to get process Stderr
+	for _, kv := range os.Environ() {
+		keyValue := strings.SplitN(kv, "=", 2)
+		_, exists := cmd.Env[keyValue[0]]
+		if !exists {
+			cmd.Cmd.Env = append(cmd.Cmd.Env, kv)
+		}
+	}
 
 	output, err := cmd.Output()
 	if err != nil {
@@ -64,7 +71,7 @@ func CommandExecute(command string, arguments []string, options ...CommandOption
 }
 
 func CommandExecuteUnmarshal(command string, arguments []string, unmarshaler Unmarshaler, result interface{}, options ...CommandOption) error {
-	output, err := CommandExecute(command, arguments)
+	output, err := CommandExecute(command, arguments, options...)
 	if err != nil {
 		return err
 	}
@@ -131,10 +138,6 @@ func (e Environment) Slice() []string {
 
 func NewEnvironment(vars ...map[string][]string) Environment {
 	e := Environment{}
-	for _, kv := range os.Environ() {
-		xs := strings.SplitN(kv, "=", 2)
-		e.Set(xs[0], xs[1])
-	}
 	for _, vs := range vars {
 		for k, v := range vs {
 			e.Set(k, v...)

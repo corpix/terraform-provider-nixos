@@ -11,6 +11,7 @@ type (
 	Nix struct {
 		Arguments []string
 		Env       Environment
+		Ssh       *Ssh
 	}
 	NixOption func(*Nix)
 
@@ -29,7 +30,6 @@ type (
 	NixCopyCommand  struct {
 		Nix       *Nix
 		Arguments []string
-		Env Environment
 	}
 	NixCopyCommandOption func(*NixCopyCommand)
 
@@ -47,6 +47,7 @@ const (
 )
 
 const (
+	NixCopyProtocolNone NixCopyProtocol = ""
 	NixCopyProtocolSSH  NixCopyProtocol = "ssh"
 	NixCopyProtocolS3   NixCopyProtocol = "s3"
 	NixCopyProtocolFile NixCopyProtocol = "file"
@@ -55,7 +56,7 @@ const (
 func (p NixCopyProtocol) Path(path string) string {
 	u := &url.URL{}
 	if len(p) > 0 {
-		u.Scheme = string(p) + ":"
+		u.Scheme = string(p)
 	}
 	u.Path = path
 	return u.String()
@@ -147,6 +148,12 @@ func NixCopyCommandOptionTo(protocol NixCopyProtocol, to string) NixCopyCommandO
 	}
 }
 
+func NixCopyCommandOptionPath(path string) NixCopyCommandOption {
+	return func(b *NixCopyCommand) {
+		b.Arguments = append(b.Arguments, path)
+	}
+}
+
 func NixCopyCommandOptionFrom(protocol NixCopyProtocol, from string) NixCopyCommandOption {
 	return func(b *NixCopyCommand) {
 		b.Arguments = append(b.Arguments, "--from", protocol.Path(from))
@@ -159,17 +166,9 @@ func NixCopyCommandOptionUseSubstitutes() NixCopyCommandOption {
 	}
 }
 
-func NixCopyCommandOptionSshOpts(opts ...string) NixCopyCommandOption {
-	return func(b *NixCopyCommand) {
-		b.Env = b.Nix.Env.Copy().Add(NixEnvironmentSshOpts, opts...)
-	}
-}
-
 func (c *NixCopyCommand) Command() (string, []string, []CommandOption) {
 	command, arguments, options := c.Nix.Command()
-	return command,
-		append(append(arguments, "copy"), c.Arguments...),
-		append(options, CommandOptionEnv(c.Env))
+	return command, append(append(arguments, "copy"), c.Arguments...), options
 }
 
 func (c *NixCopyCommand) Execute(v interface{}) error {
@@ -180,6 +179,15 @@ func (c *NixCopyCommand) Execute(v interface{}) error {
 func (b *NixCopyCommand) Close() error { return nil }
 
 //
+
+func NixOptionSsh(s *Ssh) NixOption {
+	_, opts, _ := s.Command()
+	setOpts := NixOptionSshOpts(opts...)
+	return func(n *Nix) {
+		n.Ssh = s
+		setOpts(n)
+	}
+}
 
 func NixOptionSshOpts(opts ...string) NixOption {
 	return func(n *Nix) {
@@ -205,7 +213,13 @@ func NixOptionUseSubstitutes() NixOption {
 	}
 }
 
-func (n *Nix) Close() error { return nil }
+func (n *Nix) Close() error {
+	var err error
+	if n.Ssh != nil {
+		err = n.Ssh.Close()
+	}
+	return err
+}
 
 func NewNix(options ...NixOption) *Nix {
 	command := &Nix{

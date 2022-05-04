@@ -27,6 +27,11 @@ resource "nixos_instance" "test" {
   address = ["127.0.0.1", "::1"]
   configuration = "../test/test.nix"
   settings = { foo = 1 }
+  ssh {
+    config = {
+      strictHostKeyChecking = "no"
+    }
+  }
 }
 `
 

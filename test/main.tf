@@ -19,7 +19,7 @@ provider "nixos" {
 }
 
 resource "nixos_instance" "test" {
-  address = ["172.17.0.1", "fd00:17::1"]
+  address = ["127.0.0.1", "::1"]
   configuration = "test.nix"
   nix {
     cores = 1
@@ -27,6 +27,7 @@ resource "nixos_instance" "test" {
   ssh {
     config = {
       port = "2222"
+      strictHostKeyChecking = "no"
     }
   }
 }

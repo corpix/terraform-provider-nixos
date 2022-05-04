@@ -4,7 +4,6 @@ type (
 	Ssh struct {
 		Arguments  []string
 		Finalizers []func()
-		finalized  bool
 	}
 	SshOption    func(*Ssh)
 	SshFinalizer func(*Ssh)
@@ -88,16 +87,10 @@ func (s *Ssh) Execute(v interface{}) error {
 }
 
 func (s *Ssh) Finalize() {
-	if s.finalized {
-		// mitigate "double-free" because
-		// we use finalize() in execute() & close()
-		// unconditionaly
-		return
-	}
 	for _, finalize := range s.Finalizers {
 		finalize()
 	}
-	s.finalized = true
+	s.Finalizers = nil
 }
 
 func (s *Ssh) Close() error {

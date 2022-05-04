@@ -22,6 +22,11 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 		goto fail
 	}
 
+	err = provider.Push(resource, derivations)
+	if err != nil {
+		goto fail
+	}
+
 	derivationsSchema = make([]map[string]interface{}, len(derivations))
 	err = mapstructure.Decode(derivations, &derivationsSchema)
 	if err != nil {
