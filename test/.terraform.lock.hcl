@@ -5,6 +5,6 @@ provider "registry.terraform.io/corpix/nixos" {
   version     = "0.0.1"
   constraints = "0.0.1"
   hashes = [
-    "h1:ngTTmJJxrp+CtzXn1mUj+Iga3SVzSaf5BX4L0OAXC/g=",
+    "h1:FmrwMiw+0iJaHrLEWuO9ffpxSisa/3dIfv+1jkn1zw4=",
   ]
 }

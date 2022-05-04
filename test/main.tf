@@ -13,7 +13,13 @@ provider "nixos" {
   }
   ssh {
     config = {
+      user = "root"
       port = "22"
+      # this is for totally insecure test server in docker
+      # see: make run/sshd
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
+      strictHostKeyChecking = "no"
     }
   }
 }
@@ -27,7 +33,6 @@ resource "nixos_instance" "test" {
   ssh {
     config = {
       port = "2222"
-      strictHostKeyChecking = "no"
     }
   }
 }
