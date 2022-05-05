@@ -21,15 +21,23 @@ provider "nixos" {
   nix {
     show_trace = true
   }
+  ssh {
+    config = {
+      strictHostKeyChecking = "no"
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
+      user = "root"
+      port = "22"
+    }
+  }
 }
 
 resource "nixos_instance" "test" {
   address = ["127.0.0.1", "::1"]
   configuration = "../test/test.nix"
-  settings = { foo = 1 }
   ssh {
     config = {
-      strictHostKeyChecking = "no"
+      port = "2222"
     }
   }
 }

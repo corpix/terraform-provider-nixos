@@ -17,7 +17,7 @@ func (rd *ResourceData) Get(key string) interface{} {
 	}
 
 	v := rd.ResourceData.Get(key)
-	switch vt.Type {
+	switch vt.Type { // some types can not have Default set
 	case schema.TypeSet:
 		if vt.DefaultFunc != nil && v.(*schema.Set).Len() == 0 {
 			v, err = vt.DefaultFunc()
@@ -46,6 +46,9 @@ func (rd *ResourceData) Get(key string) interface{} {
 			}
 			return v
 		}
+	}
+	if v == nil {
+		return vt.Default
 	}
 	return v
 }

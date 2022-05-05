@@ -10,6 +10,13 @@ import (
 
 type Instance struct{}
 
+func (i Instance) fail(err error) diag.Diagnostics {
+	return diag.Diagnostics{{
+		Severity: diag.Error,
+		Summary:  err.Error(),
+	}}
+}
+
 func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var (
 		provider          = meta.(*Provider)
@@ -17,12 +24,14 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 		err               error
 	)
 
-	derivations, err := provider.Build(resource)
+	derivations, err := provider.Build(ctx, resource)
 	if err != nil {
 		goto fail
 	}
 
-	err = provider.Push(resource, derivations)
+	resource.SetId(derivations.Hash())
+
+	err = provider.Push(ctx, resource, derivations)
 	if err != nil {
 		goto fail
 	}
@@ -33,31 +42,34 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 		goto fail
 	}
 
+	err = provider.Switch(ctx, resource, derivations)
+	if err != nil {
+		goto fail
+	}
+
+	//
+
 	err = resource.Set(KeyDerivations, derivationsSchema)
 	if err != nil {
 		goto fail
 	}
-	resource.SetId(derivations.Hash())
 
 	return nil
 
 fail:
-	return diag.Diagnostics{{
-		Severity: diag.Error,
-		Summary:  err.Error(),
-	}}
+	return i.fail(err)
 }
-func (Instance) Read(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// fmt.Println("read", d.Id())
+
+func (i Instance) Read(ctx context.Context, resource *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	return nil
 }
-func (Instance) Update(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// fmt.Println("update")
+
+func (i Instance) Update(ctx context.Context, resource *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	return nil
 }
-func (Instance) Delete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	// fmt.Println("delete")
-	d.SetId("")
+
+func (i Instance) Delete(ctx context.Context, resource *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	resource.SetId("")
 	return nil
 }
 

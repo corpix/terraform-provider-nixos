@@ -5,15 +5,17 @@ import (
 	"encoding/hex"
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type (
 	Nix struct {
-		Arguments []string
-		Env       Environment
-		Ssh       *Ssh
+		Arguments   []string
+		Environment Environment
+		Ssh         *Ssh
 	}
-	NixOption func(*Nix)
+	NixOption  func(*Nix)
+	NixFeature = string
 
 	//
 
@@ -35,6 +37,20 @@ type (
 
 	//
 
+	NixProfileCommand struct {
+		Nix       *Nix
+		Arguments []string
+	}
+	NixProfileCommandOption func(*NixProfileCommand)
+
+	NixProfileInstallCommand struct {
+		Profile   *NixProfileCommand
+		Arguments []string
+	}
+	NixProfileInstallCommandOption func(*NixProfileInstallCommand)
+
+	//
+
 	Derivation struct {
 		Path    string            `json:"drvPath" mapstructure:"path"`
 		Outputs map[string]string `json:"outputs" mapstructure:"outputs"`
@@ -47,16 +63,20 @@ const (
 )
 
 const (
+	NixFeatureCommand NixFeature = "nix-command"
+)
+
+const (
 	NixCopyProtocolNone NixCopyProtocol = ""
 	NixCopyProtocolSSH  NixCopyProtocol = "ssh"
 	NixCopyProtocolS3   NixCopyProtocol = "s3"
 	NixCopyProtocolFile NixCopyProtocol = "file"
 )
 
-func (p NixCopyProtocol) Path(path string) string {
+func (n NixCopyProtocol) Path(path string) string {
 	u := &url.URL{}
-	if len(p) > 0 {
-		u.Scheme = string(p)
+	if len(n) > 0 {
+		u.Scheme = string(n)
 	}
 	u.Path = path
 	return u.String()
@@ -64,13 +84,29 @@ func (p NixCopyProtocol) Path(path string) string {
 
 //
 
+func (n *Nix) With(options ...NixOption) *Nix {
+	nn := &Nix{
+		Arguments:   make([]string, len(n.Arguments)),
+		Environment: n.Environment.Copy(),
+		Ssh:         n.Ssh.With(),
+	}
+	for n, v := range n.Arguments {
+		nn.Arguments[n] = v
+	}
+
+	for _, option := range options {
+		option(nn)
+	}
+	return nn
+}
+
 func (n *Nix) Command() (string, []string, []CommandOption) {
 	arguments := make([]string, len(n.Arguments))
 	copy(arguments, n.Arguments)
 
 	options := []CommandOption{}
-	if len(n.Env) > 0 {
-		options = append(options, CommandOptionEnv(n.Env))
+	if len(n.Environment) > 0 {
+		options = append(options, CommandOptionEnv(n.Environment))
 	}
 
 	return "nix", arguments, options
@@ -120,17 +156,17 @@ func NixBuildCommandOptionJSON() NixBuildCommandOption {
 	}
 }
 
-func (b *NixBuildCommand) Command() (string, []string, []CommandOption) {
-	command, arguments, options := b.Nix.Command()
-	return command, append(append(arguments, "build"), b.Arguments...), options
+func (n *NixBuildCommand) Command() (string, []string, []CommandOption) {
+	command, arguments, options := n.Nix.Command()
+	return command, append(append(arguments, "build"), n.Arguments...), options
 }
 
-func (b *NixBuildCommand) Execute(v interface{}) error {
-	command, arguments, options := b.Command()
-	return CommandExecuteUnmarshal(command, arguments, b.Unmarshaler, v, options...)
+func (n *NixBuildCommand) Execute(v interface{}) error {
+	command, arguments, options := n.Command()
+	return CommandExecuteUnmarshal(command, arguments, n.Unmarshaler, v, options...)
 }
 
-func (b *NixBuildCommand) Close() error { return nil }
+func (n *NixBuildCommand) Close() error { return nil }
 
 //
 
@@ -166,17 +202,73 @@ func NixCopyCommandOptionUseSubstitutes() NixCopyCommandOption {
 	}
 }
 
-func (c *NixCopyCommand) Command() (string, []string, []CommandOption) {
-	command, arguments, options := c.Nix.Command()
-	return command, append(append(arguments, "copy"), c.Arguments...), options
+func (n *NixCopyCommand) Command() (string, []string, []CommandOption) {
+	command, arguments, options := n.Nix.Command()
+	return command, append(append(arguments, "copy"), n.Arguments...), options
 }
 
-func (c *NixCopyCommand) Execute(v interface{}) error {
-	command, arguments, options := c.Command()
+func (n *NixCopyCommand) Execute(v interface{}) error {
+	command, arguments, options := n.Command()
 	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
 }
 
-func (b *NixCopyCommand) Close() error { return nil }
+func (n *NixCopyCommand) Close() error { return nil }
+
+//
+
+func (n *Nix) Profile(options ...NixProfileCommandOption) *NixProfileCommand {
+	command := &NixProfileCommand{Nix: n}
+	for _, option := range options {
+		option(command)
+	}
+	return command
+}
+
+func (n *NixProfileCommand) Command() (string, []string, []CommandOption) {
+	command, arguments, options := n.Nix.Command()
+	return command, append(append(arguments, "profile"), n.Arguments...), options
+}
+
+func (n *NixProfileCommand) Execute(v interface{}) error {
+	command, arguments, options := n.Command()
+	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+}
+
+func (n *NixProfileCommand) Close() error { return nil }
+
+//
+
+func (n *NixProfileCommand) Install(options ...NixProfileInstallCommandOption) *NixProfileInstallCommand {
+	command := &NixProfileInstallCommand{Profile: n}
+	for _, option := range options {
+		option(command)
+	}
+	return command
+}
+
+func NixProfileInstallCommandOptionProfile(location string) NixProfileInstallCommandOption {
+	return func(n *NixProfileInstallCommand) {
+		n.Arguments = append(n.Arguments, "--profile", location)
+	}
+}
+
+func NixProfileInstallCommandOptionDerivation(path string) NixProfileInstallCommandOption {
+	return func(n *NixProfileInstallCommand) {
+		n.Arguments = append(n.Arguments, "--derivation", path)
+	}
+}
+
+func (n *NixProfileInstallCommand) Command() (string, []string, []CommandOption) {
+	command, arguments, options := n.Profile.Command()
+	return command, append(append(arguments, "install"), n.Arguments...), options
+}
+
+func (n *NixProfileInstallCommand) Execute(v interface{}) error {
+	command, arguments, options := n.Command()
+	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+}
+
+func (n *NixProfileInstallCommand) Close() error { return nil }
 
 //
 
@@ -191,7 +283,16 @@ func NixOptionSsh(s *Ssh) NixOption {
 
 func NixOptionSshOpts(opts ...string) NixOption {
 	return func(n *Nix) {
-		n.Env.Add(NixEnvironmentSshOpts, opts...)
+		n.Environment.Add(NixEnvironmentSshOpts, opts...)
+	}
+}
+
+func NixOptionExperimentalFeatures(feature ...NixFeature) NixOption {
+	return func(n *Nix) {
+		n.Arguments = append(
+			n.Arguments, "--extra-experimental-features",
+			strings.Join(feature, ","),
+		)
 	}
 }
 
@@ -223,7 +324,7 @@ func (n *Nix) Close() error {
 
 func NewNix(options ...NixOption) *Nix {
 	command := &Nix{
-		Env: Environment{},
+		Environment: Environment{},
 	}
 	for _, option := range options {
 		option(command)

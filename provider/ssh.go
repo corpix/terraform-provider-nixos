@@ -76,6 +76,24 @@ func SshFinalizerFile(fd File) SshFinalizer {
 
 //
 
+func (s *Ssh) With(options ...SshOption) *Ssh {
+	ss := &Ssh{
+		Arguments:  make([]string, len(s.Arguments)),
+		Finalizers: make([]func(), len(s.Finalizers)),
+	}
+	for n, v := range s.Arguments {
+		ss.Arguments[n] = v
+	}
+	for n, v := range s.Finalizers {
+		ss.Finalizers[n] = v
+	}
+
+	for _, option := range options {
+		option(ss)
+	}
+	return ss
+}
+
 func (s *Ssh) Command() (string, []string, []CommandOption) {
 	return "ssh", s.Arguments, nil
 }

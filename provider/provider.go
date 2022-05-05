@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"context"
 	"net"
 	"path/filepath"
 
@@ -126,6 +127,9 @@ func (p *Provider) NewNix(resource *schema.ResourceData) *Nix {
 		options = append(options, NixOptionUseSubstitutes())
 	}
 
+	// TODO: check nix version
+	options = append(options, NixOptionExperimentalFeatures(NixFeatureCommand))
+
 	options = append(options, NixOptionSsh(p.NewSsh(resource)))
 
 	return NewNix(options...)
@@ -158,7 +162,7 @@ func (p *Provider) SshSettings(resource *schema.ResourceData) map[string]interfa
 
 //
 
-func (p *Provider) Build(resource *schema.ResourceData) (Derivations, error) {
+func (p *Provider) Build(ctx context.Context, resource *schema.ResourceData) (Derivations, error) {
 	nix := p.NewNix(resource)
 	defer nix.Close()
 
@@ -186,6 +190,12 @@ func (p *Provider) Build(resource *schema.ResourceData) (Derivations, error) {
 	)
 	defer command.Close()
 
+	select {
+	case <-ctx.Done():
+		return nil, nil
+	default:
+	}
+
 	derivations := Derivations{}
 	err = command.Execute(&derivations)
 	if err != nil {
@@ -207,7 +217,7 @@ func (p *Provider) Build(resource *schema.ResourceData) (Derivations, error) {
 	return derivations, nil
 }
 
-func (p *Provider) Push(resource *schema.ResourceData, drvs Derivations) error {
+func (p *Provider) Push(ctx context.Context, resource *schema.ResourceData, drvs Derivations) error {
 	nix := p.NewNix(resource)
 	defer nix.Close()
 
@@ -218,6 +228,12 @@ func (p *Provider) Push(resource *schema.ResourceData, drvs Derivations) error {
 
 	for _, drv := range drvs {
 		for _, path := range drv.Outputs {
+			select {
+			case <-ctx.Done():
+				return nil
+			default:
+			}
+
 			command := nix.Copy(
 				NixCopyCommandOptionTo(NixCopyProtocolSSH, address.String()),
 				NixCopyCommandOptionPath(path),
@@ -232,6 +248,32 @@ func (p *Provider) Push(resource *schema.ResourceData, drvs Derivations) error {
 	}
 
 	return nil
+}
+
+func (p *Provider) Switch(ctx context.Context, resource *schema.ResourceData, drvs Derivations) error {
+	address, err := p.Address(resource.Get(KeyAddress))
+	if err != nil {
+		panic(err)
+	}
+
+	var (
+		nix               = p.NewNix(resource)
+		nixSettings       = p.NixSettings(resource)
+		profilePath       = nixSettings[KeyNixProfile].(string)
+		drvPath           = drvs[len(drvs)-1].Outputs["out"] // TODO: make output name configurable
+		nixProfile        = nix.Profile()
+		nixProfileInstall = NewRemoteCommand(
+			nix.Ssh.With(SshOptionHost(address.String())),
+			nixProfile.Install(
+				NixProfileInstallCommandOptionProfile(profilePath),
+				NixProfileInstallCommandOptionDerivation(drvPath),
+			),
+		)
+	)
+
+	err = nixProfileInstall.Execute(nil)
+
+	return err
 }
 
 func (p *Provider) Close() error { return nil }

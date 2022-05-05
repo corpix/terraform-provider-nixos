@@ -20,9 +20,43 @@ type (
 	}
 	CommandOption func(*Cmd)
 	CommandResult = interface{}
+	RemoteCommand struct {
+		Cmd Command
+		Ssh *Ssh
+	}
 
 	Environment map[string][]string
 )
+
+func (c *RemoteCommand) Command() (string, []string, []CommandOption) {
+	return c.Cmd.Command()
+}
+
+func (c *RemoteCommand) Execute(v interface{}) error {
+	command, arguments, options := c.Cmd.Command()
+	sshCommand, sshArguments, sshOptions := c.Ssh.Command()
+	return CommandExecuteUnmarshal(
+		sshCommand,
+		append(append(sshArguments, command), arguments...),
+		nil, v,
+		append(sshOptions, options...)...,
+	)
+}
+
+func (c *RemoteCommand) Close() error {
+	return c.Cmd.Close()
+}
+
+func NewRemoteCommand(s *Ssh, c Command) *RemoteCommand {
+	return &RemoteCommand{
+		Cmd: c,
+		Ssh: s,
+	}
+}
+
+var _ Command = &RemoteCommand{}
+
+//
 
 func CommandOptionEnv(env Environment) CommandOption {
 	return func(cmd *Cmd) {

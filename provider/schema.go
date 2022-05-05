@@ -27,6 +27,7 @@ const (
 
 	KeyNix               = "nix"
 	KeyNixBuildWrapper   = "build_wrapper"
+	KeyNixProfile        = "profile"
 	KeyNixShowTrace      = "show_trace"
 	KeyNixCores          = "cores"
 	KeyNixUseSubstitutes = "use_substitutes"
@@ -67,6 +68,12 @@ var (
 					Description: "Path to the configuration wrapper in Nix language (function which returns drv_path & out_path)",
 					Type:        schema.TypeString,
 					Optional:    true,
+				},
+				KeyNixProfile: {
+					Description: "Path to the current system profile",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "/nix/var/nix/profiles/system",
 				},
 				KeyNixShowTrace: {
 					Description: "Show Nix package manager trace on error",
