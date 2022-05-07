@@ -29,6 +29,7 @@ resource "nixos_instance" "test" {
   configuration = "test.nix"
   nix {
     cores = 1
+    activation_action = "" # skip activation because we run in docker
   }
   ssh {
     config = {

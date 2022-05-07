@@ -257,21 +257,53 @@ func (p *Provider) Switch(ctx context.Context, resource *schema.ResourceData, dr
 	}
 
 	var (
-		nix               = p.NewNix(resource)
-		nixSettings       = p.NixSettings(resource)
-		profilePath       = nixSettings[KeyNixProfile].(string)
-		drvPath           = drvs[len(drvs)-1].Outputs["out"] // TODO: make output name configurable
+		nix         = p.NewNix(resource)
+		nixSettings = p.NixSettings(resource)
+		profilePath = nixSettings[KeyNixProfile].(string)
+		outName     = nixSettings[KeyNixOutputName].(string)
+		drvPath     = drvs[len(drvs)-1].Outputs[outName]
+		ssh         = nix.Ssh.With(SshOptionHost(address.String()))
+
 		nixProfile        = nix.Profile()
 		nixProfileInstall = NewRemoteCommand(
-			nix.Ssh.With(SshOptionHost(address.String())),
+			ssh,
 			nixProfile.Install(
 				NixProfileInstallCommandOptionProfile(profilePath),
 				NixProfileInstallCommandOptionDerivation(drvPath),
 			),
 		)
+
+		activationScript = nixSettings[KeyNixActivationScript].(string)
+		activationAction = nixSettings[KeyNixActivationAction].(string)
+		activation       = NewRemoteCommand(
+			ssh,
+			CommandFromString(
+				activationScript,
+				activationAction,
+			),
+		)
+		skipActivation = false
 	)
 
+	switch activationAction {
+	case NixActivationActionNone:
+		skipActivation = true
+	case NixActivationActionSwitch:
+	case NixActivationActionBoot:
+	case NixActivationActionTest:
+	case NixActivationActionDryActivate:
+	default:
+		return errors.Errorf("unsupported activation action: %q", activationAction)
+	}
+
 	err = nixProfileInstall.Execute(nil)
+	if err != nil {
+		return err
+	}
+
+	if !skipActivation {
+		err = activation.Execute(nil)
+	}
 
 	return err
 }

@@ -51,6 +51,10 @@ type (
 
 	//
 
+	NixActivationAction = string
+
+	//
+
 	Derivation struct {
 		Path    string            `json:"drvPath" mapstructure:"path"`
 		Outputs map[string]string `json:"outputs" mapstructure:"outputs"`
@@ -71,6 +75,14 @@ const (
 	NixCopyProtocolSSH  NixCopyProtocol = "ssh"
 	NixCopyProtocolS3   NixCopyProtocol = "s3"
 	NixCopyProtocolFile NixCopyProtocol = "file"
+)
+
+const (
+	NixActivationActionNone        NixActivationAction = ""
+	NixActivationActionSwitch      NixActivationAction = "switch"
+	NixActivationActionBoot        NixActivationAction = "boot"
+	NixActivationActionTest        NixActivationAction = "test"
+	NixActivationActionDryActivate NixActivationAction = "dry-activate"
 )
 
 func (n NixCopyProtocol) Path(path string) string {

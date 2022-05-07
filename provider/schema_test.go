@@ -20,6 +20,7 @@ const nixosSampleConfig = `
 provider "nixos" {
   nix {
     show_trace = true
+    activation_action = "" # skip activation because we are running in docker
   }
   ssh {
     config = {

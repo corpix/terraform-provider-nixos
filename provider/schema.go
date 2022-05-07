@@ -25,12 +25,21 @@ const (
 	KeyConfiguration   = "configuration"
 	KeySettings        = "settings"
 
-	KeyNix               = "nix"
-	KeyNixBuildWrapper   = "build_wrapper"
-	KeyNixProfile        = "profile"
+	//
+
+	KeyNix             = "nix"
+	KeyNixBuildWrapper = "build_wrapper"
+
+	KeyNixProfile          = "profile"
+	KeyNixOutputName       = "output"
+	KeyNixActivationScript = "activation_script"
+	KeyNixActivationAction = "activation_action"
+
 	KeyNixShowTrace      = "show_trace"
 	KeyNixCores          = "cores"
 	KeyNixUseSubstitutes = "use_substitutes"
+
+	//
 
 	KeySsh       = "ssh"
 	KeySshConfig = "config"
@@ -74,6 +83,24 @@ var (
 					Type:        schema.TypeString,
 					Optional:    true,
 					Default:     "/nix/var/nix/profiles/system",
+				},
+				KeyNixOutputName: {
+					Description: "System derivation output name",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "out",
+				},
+				KeyNixActivationScript: {
+					Description: "Path to the system profile activation script",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "/nix/var/nix/profiles/system/bin/switch-to-configuration",
+				},
+				KeyNixActivationAction: {
+					Description: "Activation script action, one of: switch|boot|test|dry-activate",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "switch",
 				},
 				KeyNixShowTrace: {
 					Description: "Show Nix package manager trace on error",
