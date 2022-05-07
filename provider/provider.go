@@ -181,10 +181,12 @@ func (p *Provider) Build(ctx context.Context, resource *schema.ResourceData) (De
 			configuration,
 		)
 	}
+	configurationSettings := resource.Get(KeySettings).(string)
 
 	command := nix.Build(
 		NixBuildCommandOptionFile(buildWrapper),
 		NixBuildCommandOptionArgStr("configuration", configurationAbs),
+		NixBuildCommandOptionArgStr("settings", configurationSettings),
 		NixBuildCommandOptionJSON(),
 		NixBuildCommandOptionNoLink(),
 	)

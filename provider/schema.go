@@ -167,10 +167,10 @@ var (
 					Required:    true,
 				},
 				KeySettings: {
-					Description: "Optional settings to pass into Nix configuration derivation as attribute set",
-					Type:        schema.TypeMap,
-					Elem:        &schema.Schema{Type: schema.TypeString},
+					Description: "Optional settings (encoded with HCL function jsonencode()) to pass into Nix configuration derivation as attribute set (any configuration key could be specified)",
+					Type:        schema.TypeString,
 					Optional:    true,
+					Default:     "{}",
 				},
 
 				KeyNix: ProviderSchemaNix,

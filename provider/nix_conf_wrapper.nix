@@ -1,11 +1,12 @@
 { nixpkgs  ? <nixpkgs>
 , system   ? builtins.currentSystem
-, settings ? {}
+, settings ? "{}"
 , configuration
 }:
 let
   inherit (builtins)
     concatStringsSep
+    fromJSON
   ;
 
   concat = concatStringsSep " ";
@@ -14,7 +15,7 @@ let
 
   configurationModule = { config, lib, pkgs, ... }:
     { imports = [ configuration ];
-      config = settings;
+      config = fromJSON settings;
     };
   os = import "${nixpkgs}/nixos"
     { inherit system;

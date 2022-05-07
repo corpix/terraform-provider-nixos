@@ -59,6 +59,7 @@ let
   in pkgs.terraform_1.withPlugins (p: [
     p.null
     p.external
+    p.vultr
     nixos
   ]);
 
@@ -81,6 +82,8 @@ in stdenv.mkDerivation rec {
 
     export LANG="en_US.UTF-8"
     export NIX_PATH="nixpkgs=${nixpkgs}"
+
+    export TF_VAR_VULTR_API_KEY=
 
     if [ ! -z "$PS1" ]
     then
