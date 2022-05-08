@@ -1,18 +1,80 @@
 package provider
 
+import (
+	"strings"
+)
+
 type (
 	Ssh struct {
 		Arguments  []string
 		Finalizers []func()
 	}
-	SshOption    func(*Ssh)
-	SshFinalizer func(*Ssh)
+	SshOption         func(*Ssh)
+	SshFinalizer      func(*Ssh)
+	SshConfigKeyValue struct {
+		Key   string
+		Value string
+	}
+	SshConfigPairs = []SshConfigKeyValue
+	SshConfigMap   struct {
+		index map[string]int
+		store SshConfigPairs
+	}
 )
 
-func SshSerializeConfig(m map[string]string) string {
+func (m *SshConfigMap) Set(key, value string) {
+	lkey := strings.ToLower(key)
+	i, found := m.index[lkey]
+	if found {
+		m.store[i].Value = value
+	} else {
+		m.index[lkey] = len(m.store)
+		m.store = append(m.store, SshConfigKeyValue{
+			Key:   lkey,
+			Value: value,
+		})
+	}
+}
+
+func (m *SshConfigMap) Get(key string) (string, bool) {
+	i, found := m.index[strings.ToLower(key)]
+	if !found {
+		return "", false
+	}
+	return m.store[i].Value, true
+}
+
+func (m *SshConfigMap) Len() int {
+	return len(m.store)
+}
+
+func (m *SshConfigMap) Pairs() SshConfigPairs {
+	ps := make(SshConfigPairs, len(m.store))
+	for i, v := range m.store {
+		ps[i] = v
+	}
+	return ps
+}
+
+func NewSshConfigMap() *SshConfigMap {
+	return &SshConfigMap{
+		index: map[string]int{},
+	}
+}
+
+const (
+	SshConfigKeyHost         = "host"
+	SshConfigKeyUser         = "user"
+	SshConfigKeyPort         = "port"
+	SshConfigKeyProxyCommand = "proxyCommand"
+)
+
+//
+
+func SshSerializeConfig(ps SshConfigPairs) string {
 	var config string
-	for k, v := range m {
-		config += k + " " + v + "\n"
+	for _, v := range ps {
+		config += v.Key + " " + v.Value + "\n"
 	}
 	return config
 }
@@ -29,25 +91,19 @@ func SshOptionConfigFile(fd File) SshOption {
 	return SshOptionConfig(fd.Name())
 }
 
-func SshOptionConfigMap(m map[string]string) SshOption {
+func SshOptionConfigMap(ps SshConfigPairs) SshOption {
 	return func(s *Ssh) {
 		fd, err := CreateTemp("ssh_config.*")
 		if err != nil {
 			panic(err)
 		}
-		_, err = fd.Write([]byte(SshSerializeConfig(m)))
+		_, err = fd.Write([]byte(SshSerializeConfig(ps)))
 		if err != nil {
 			panic(err)
 		}
 
 		SshFinalizerFile(fd)(s)
 		SshOptionConfigFile(fd)(s)
-	}
-}
-
-func SshOptionUser(user string) SshOption {
-	return func(s *Ssh) {
-		s.Arguments = append(s.Arguments, user)
 	}
 }
 
@@ -60,6 +116,18 @@ func SshOptionHost(host string) SshOption {
 func SshOptionCommand(cmd string) SshOption {
 	return func(s *Ssh) {
 		s.Arguments = append(s.Arguments, cmd)
+	}
+}
+
+func SshOptionNonInteractive() SshOption {
+	return func(s *Ssh) {
+		s.Arguments = append(s.Arguments, "-N")
+	}
+}
+
+func SshOptionIORedirection(host, port string) SshOption {
+	return func(s *Ssh) {
+		s.Arguments = append(s.Arguments, "-W", host+":"+port)
 	}
 }
 

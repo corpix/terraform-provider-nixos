@@ -26,7 +26,9 @@ provider "vultr" {
 
 provider "nixos" {
   ssh {
+    port = 22
     config = {
+      port = 2222
       # user = "root"
       # identityFile = "/home/user/.ssh/..."
     }

@@ -18,17 +18,28 @@ var providerFactories = map[string]func() (*schema.Provider, error){
 
 const nixosSampleConfig = `
 provider "nixos" {
+  retry = 0
   nix {
     show_trace = true
     activation_action = "" # skip activation because we are running in docker
   }
   ssh {
+    port = 666
     config = {
+      userKnownHostsFile = "/dev/null"
       strictHostKeyChecking = "no"
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
-      user = "root"
-      port = "22"
+    }
+    bastion {
+      host = "127.0.0.1"
+      port = 2222
+      config = {
+        userKnownHostsFile = "/dev/null"
+        strictHostKeyChecking = "no"
+        pubKeyAuthentication = "no"
+        passwordAuthentication = "yes"
+      }
     }
   }
 }
@@ -37,9 +48,7 @@ resource "nixos_instance" "test" {
   address = ["127.0.0.1", "::1"]
   configuration = "../test/test.nix"
   ssh {
-    config = {
-      port = "2222"
-    }
+    port = 2222
   }
 }
 `

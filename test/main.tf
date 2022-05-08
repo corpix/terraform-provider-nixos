@@ -12,14 +12,22 @@ provider "nixos" {
     cores = 2
   }
   ssh {
+    port = 666
     config = {
-      user = "root"
-      port = "22"
-      # this is for totally insecure test server in docker
-      # see: make run/sshd
+      userKnownHostsFile = "/dev/null"
+      strictHostKeyChecking = "no"
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
-      strictHostKeyChecking = "no"
+    }
+    bastion {
+      host = "127.0.0.1"
+      port = 2222
+      config = {
+	userKnownHostsFile = "/dev/null"
+	strictHostKeyChecking = "no"
+	pubKeyAuthentication = "no"
+	passwordAuthentication = "yes"
+      }
     }
   }
 }
@@ -32,8 +40,6 @@ resource "nixos_instance" "test" {
     activation_action = "" # skip activation because we run in docker
   }
   ssh {
-    config = {
-      port = "2222"
-    }
+    port = 2222
   }
 }

@@ -16,6 +16,25 @@ func SchemaWithDefaultFuncCtr(ctr SchemaDefaultFuncCtr, s *schema.Schema) *schem
 	return s
 }
 
+func SchemaMapExtend(original, extension map[string]*schema.Schema) map[string]*schema.Schema {
+	m := map[string]*schema.Schema{}
+	for k, v := range original {
+		m[k] = v
+	}
+	for k, v := range extension {
+		m[k] = v
+	}
+	return m
+}
+
+//
+
+const (
+	DefaultUser = "root"
+)
+
+//
+
 func DefaultMapFromSchema(s *schema.Schema) SchemaDefaultFunc {
 	subschema := s.Elem.(*schema.Resource).Schema
 	return func() (interface{}, error) {
@@ -41,7 +60,7 @@ func DefaultMapFromSchema(s *schema.Schema) SchemaDefaultFunc {
 
 func DefaultSshConfig() (interface{}, error) {
 	return map[string]interface{}{
-		"user": "root",
+		"user": DefaultUser,
 	}, nil
 }
 

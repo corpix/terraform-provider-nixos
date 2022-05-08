@@ -9,6 +9,10 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+type schemaResource interface {
+	Get(key string) interface{}
+}
+
 //
 
 func init() {
@@ -24,6 +28,8 @@ const (
 	KeyAddress         = "address"
 	KeyConfiguration   = "configuration"
 	KeySettings        = "settings"
+	KeyRetry           = "retry"
+	KeyRetryWait       = "retry_wait"
 
 	//
 
@@ -41,8 +47,12 @@ const (
 
 	//
 
-	KeySsh       = "ssh"
-	KeySshConfig = "config"
+	KeySsh        = "ssh"
+	KeySshHost    = "host"
+	KeySshUser    = "user"
+	KeySshPort    = "port"
+	KeySshConfig  = "config"
+	KeySshBastion = "bastion"
 
 	KeyDerivations       = "derivations"
 	KeyDerivationPath    = "path"
@@ -50,20 +60,50 @@ const (
 )
 
 var (
+	ProviderSchemaSshMap = map[string]*schema.Schema{
+		KeySshHost: {
+			Description: "SSH remote hostname",
+			Type:        schema.TypeString,
+			Optional:    true,
+		},
+		KeySshUser: {
+			Description: "SSH remote user name",
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     DefaultUser,
+		},
+		KeySshPort: {
+			Description: "SSH remote port",
+			Type:        schema.TypeInt,
+			Optional:    true,
+		},
+		KeySshConfig: {
+			Description: "SSH configuration map",
+			Type:        schema.TypeMap,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Optional:    true,
+			DefaultFunc: DefaultSshConfig,
+		},
+	}
 	ProviderSchemaSsh = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "SSH protocol settings",
 		Type:        schema.TypeSet,
 		MaxItems:    1,
 		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				KeySshConfig: {
-					Description: "OpenSSH configuration map",
-					Type:        schema.TypeMap,
-					Elem:        &schema.Schema{Type: schema.TypeString},
-					Optional:    true,
-					DefaultFunc: DefaultSshConfig,
+			Schema: SchemaMapExtend(
+				ProviderSchemaSshMap,
+				map[string]*schema.Schema{
+					KeySshBastion: {
+						Description: "SSH configuration for bastion server",
+						Type:        schema.TypeSet,
+						MaxItems:    1,
+						Elem: &schema.Resource{
+							Schema: ProviderSchemaSshMap,
+						},
+						Optional: true,
+					},
 				},
-			},
+			),
 		},
 		Optional: true,
 	})
@@ -126,6 +166,19 @@ var (
 	})
 
 	ProviderSchemaMap = map[string]*schema.Schema{
+		KeyRetry: {
+			Description: "Amount of retries for retryable operations",
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Default:     5,
+		},
+		KeyRetryWait: {
+			Description: "Amount of seconds to wait between retries",
+			Type:        schema.TypeInt,
+			Optional:    true,
+			Default:     5,
+		},
+
 		KeyAddressFilter: {
 			Description: "List of network cidr's to filter addresses used to connect to nixos_instance resources",
 			Type:        schema.TypeList,

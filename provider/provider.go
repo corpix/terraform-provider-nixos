@@ -2,13 +2,18 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
 )
+
+//
 
 type Provider struct {
 	*ResourceData
@@ -83,15 +88,66 @@ func (p *Provider) init() error {
 
 //
 
-func (p *Provider) settings(key string, resource *schema.ResourceData) map[string]interface{} {
-	var err error
+func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{} {
+	var (
+		value interface{}
+		ok    bool
+		fold  = func(key string, value interface{}) interface{} {
+			switch v := value.(type) {
+			case nil:
+				value = r.Get(key)
+			case *schema.Set:
+				for _, vv := range v.List() {
+					switch vvv := vv.(type) {
+					case map[string]interface{}:
+						value = vvv[key]
+						if ok {
+							break
+						}
+					default:
+						goto fail
+					}
+				}
+			default:
+				goto fail
+			}
+			return value
+		fail:
+			panic(fmt.Sprintf(
+				"got unhandled type %T at %q while walking path %q on resource %#v",
+				value, key, strings.Join(path, "."), r,
+			))
+		}
+	)
 
-	providerLevel := p.Get(key).(*schema.Set).List()[0].(map[string]interface{})
+	value = fold(path[0], nil)
+	for _, key := range path[1:] {
+		value = fold(key, value)
+	}
+
+	//
+
+	switch v := value.(type) {
+	case *schema.Set:
+		value = v.List()
+	}
+
+	return value
+}
+
+func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[string]interface{} {
+	var (
+		err           error
+		providerLevel map[string]interface{}
+	)
+
+	providerLevel = p.resolveSettings(p, path...).([]interface{})[0].(map[string]interface{})
+
 	if resource == nil {
 		return providerLevel
 	}
 
-	resourceLevelList := resource.Get(key).(*schema.Set).List()
+	resourceLevelList := p.resolveSettings(resource, path...).([]interface{})
 	if len(resourceLevelList) > 0 {
 		resourceLevel := resourceLevelList[0].(map[string]interface{})
 		providerLevelCopy := make(map[string]interface{}, len(providerLevel))
@@ -111,53 +167,105 @@ func (p *Provider) settings(key string, resource *schema.ResourceData) map[strin
 	return providerLevel
 }
 
+func (p *Provider) NixSettings(resource *schema.ResourceData) map[string]interface{} {
+	return p.settings(resource, KeyNix)
+}
+
+func (p *Provider) SshSettings(resource *schema.ResourceData) map[string]interface{} {
+	return p.settings(resource, KeySsh)
+}
+
+func (p *Provider) SshBastionSettings(resource *schema.ResourceData) map[string]interface{} {
+	return p.settings(resource, KeySsh, KeySshBastion)
+}
+
+//
+
 func (p *Provider) NewNix(resource *schema.ResourceData) *Nix {
 	var (
-		options     []NixOption
-		nixSettings = p.NixSettings(resource)
+		options  []NixOption
+		settings = p.NixSettings(resource)
 	)
 
-	if showTrace, ok := nixSettings[KeyNixShowTrace].(bool); ok && showTrace {
+	if showTrace, ok := settings[KeyNixShowTrace].(bool); ok && showTrace {
 		options = append(options, NixOptionShowTrace())
 	}
-	if num, ok := nixSettings[KeyNixCores].(int); ok && num > 0 {
+	if num, ok := settings[KeyNixCores].(int); ok && num > 0 {
 		options = append(options, NixOptionCores(num))
 	}
-	if use, ok := nixSettings[KeyNixUseSubstitutes].(bool); ok && use {
+	if use, ok := settings[KeyNixUseSubstitutes].(bool); ok && use {
 		options = append(options, NixOptionUseSubstitutes())
 	}
 
-	// TODO: check nix version
-	options = append(options, NixOptionExperimentalFeatures(NixFeatureCommand))
-
-	options = append(options, NixOptionSsh(p.NewSsh(resource)))
+	options = append(
+		options,
+		// TODO: check nix version
+		NixOptionExperimentalFeatures(NixFeatureCommand),
+		NixOptionSsh(p.NewSsh(resource)),
+	)
 
 	return NewNix(options...)
 }
 
-func (p *Provider) NixSettings(resource *schema.ResourceData) map[string]interface{} {
-	return p.settings(KeyNix, resource)
-}
-
 func (p *Provider) NewSsh(resource *schema.ResourceData) *Ssh {
 	var (
-		options     []SshOption
-		sshSettings = p.SshSettings(resource)
+		options []SshOption
+
+		settings        = p.SshSettings(resource)
+		configMap       = p.SshConfigMap(settings)
+		bastionSettings = p.SshBastionSettings(resource)
+		bastionHost     = bastionSettings[KeySshHost].(string)
 	)
 
-	if sshConfig, ok := sshSettings[KeySshConfig].(map[string]interface{}); ok {
-		sshConfigStrings := make(map[string]string, len(sshConfig))
-		for k, v := range sshConfig {
-			sshConfigStrings[k] = v.(string)
+	if len(bastionSettings) > 0 && bastionHost != "" {
+		bastionConfigMap := p.SshConfigMap(bastionSettings)
+		if bastionConfigMap.Len() > 0 {
+			bastionConfigOption := SshOptionConfigMap(bastionConfigMap.Pairs())
+			bastion := NewSsh(
+				bastionConfigOption,
+				SshOptionNonInteractive(),
+				SshOptionIORedirection("%h", "%p"),
+				SshOptionHost(bastionHost),
+			)
+			command, arguments, _ := bastion.Command()
+			configMap.Set(
+				SshConfigKeyProxyCommand,
+				strings.Join(append([]string{command}, arguments...), " "),
+			)
+			options = append(
+				options,
+				bastionConfigOption,
+			)
 		}
-		options = append(options, SshOptionConfigMap(sshConfigStrings))
+	}
+
+	if configMap.Len() > 0 {
+		options = append(
+			options,
+			SshOptionConfigMap(configMap.Pairs()),
+		)
 	}
 
 	return NewSsh(options...)
 }
 
-func (p *Provider) SshSettings(resource *schema.ResourceData) map[string]interface{} {
-	return p.settings(KeySsh, resource)
+func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
+	sshConfigMap := NewSshConfigMap()
+	if sshHost, ok := settings[KeySshHost].(string); ok && len(sshHost) > 0 {
+		sshConfigMap.Set(SshConfigKeyHost, sshHost)
+	}
+	if sshUser, ok := settings[KeySshUser].(string); ok && len(sshUser) > 0 {
+		sshConfigMap.Set(SshConfigKeyUser, sshUser)
+	}
+	if sshPort, ok := settings[KeySshPort].(int); ok && sshPort > 0 {
+		sshConfigMap.Set(SshConfigKeyPort, strconv.Itoa(sshPort))
+	}
+	if sshConfig, ok := settings[KeySshConfig].(map[string]interface{}); ok {
+		for k, v := range sshConfig {
+			sshConfigMap.Set(k, v.(string))
+		}
+	}
+	return sshConfigMap
 }
 
 //

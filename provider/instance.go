@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
 )
@@ -23,49 +22,49 @@ func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta in
 	var (
 		provider          = meta.(*Provider)
 		derivationsSchema []map[string]interface{}
+
+		retry     = provider.Get(KeyRetry).(int)
+		retryWait = time.Duration(provider.Get(KeyRetryWait).(int)) * time.Second
 	)
 
-	err := resource.RetryContext(
-		ctx,
-		data.Timeout(schema.TimeoutCreate) - time.Minute,
-		func () *resource.RetryError {
-			derivations, err := provider.Build(ctx, data)
-			if err != nil {
-				return resource.NonRetryableError(err)
-			}
-
-			data.SetId(derivations.Hash())
-
-			err = provider.Push(ctx, data, derivations)
-			if err != nil {
-				return resource.RetryableError(err)
-			}
-
-			derivationsSchema = make([]map[string]interface{}, len(derivations))
-			err = mapstructure.Decode(derivations, &derivationsSchema)
-			if err != nil {
-				return resource.NonRetryableError(err)
-			}
-
-			err = provider.Switch(ctx, data, derivations)
-			if err != nil {
-				return resource.NonRetryableError(err)
-			}
-
-			//
-
-			err = data.Set(KeyDerivations, derivationsSchema)
-			if err != nil {
-				return resource.NonRetryableError(err)
-			}
-
-			return nil
-		},
-	)
-
+	derivations, err := provider.Build(ctx, data)
 	if err != nil {
 		return i.fail(err)
 	}
+
+	for { // NOTE: terraform retry helpers are utter garbage relying on timeouts, here is more simple implementation
+		err = provider.Push(ctx, data, derivations)
+		if err != nil {
+			if retry > 0 {
+				retry--
+				// TODO: progressive wait time? (need limit)
+				time.Sleep(retryWait)
+				continue
+			}
+			return i.fail(err)
+		}
+		break
+	}
+
+	derivationsSchema = make([]map[string]interface{}, len(derivations))
+	err = mapstructure.Decode(derivations, &derivationsSchema)
+	if err != nil {
+		return i.fail(err)
+	}
+
+	err = provider.Switch(ctx, data, derivations)
+	if err != nil {
+		return i.fail(err)
+	}
+
+	//
+
+	data.SetId(derivations.Hash())
+	err = data.Set(KeyDerivations, derivationsSchema)
+	if err != nil {
+		return i.fail(err)
+	}
+
 	return nil
 }
 
