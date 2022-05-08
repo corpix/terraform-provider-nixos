@@ -20,10 +20,10 @@ in {
 
     fileSystems.rootfs = {
       label = "rootfs";
-      device = "/dev/sda";
+      device = "/dev/vda1";
       fsType = "ext4";
       mountPoint = "/";
     };
-    boot.loader.grub.devices = ["/dev/sda"];
+    boot.loader.grub.devices = ["/dev/vda"];
   };
 }

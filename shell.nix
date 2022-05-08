@@ -71,6 +71,7 @@ in stdenv.mkDerivation rec {
     git jq yq-go tmux findutils gnumake
     go gopls golangci-lint
     terraform terraform-ls
+    nixos-generators
   ];
   shellHook = ''
     export root=$(pwd)

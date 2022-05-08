@@ -1,0 +1,4 @@
+/image.raw
+/terraform.tfstate*
+/.terraform*
+/pub

@@ -61,6 +61,7 @@ var (
 					Type:        schema.TypeMap,
 					Elem:        &schema.Schema{Type: schema.TypeString},
 					Optional:    true,
+					DefaultFunc: DefaultSshConfig,
 				},
 			},
 		},

@@ -1,10 +1,7 @@
 package provider
 
 import (
-	"os/user"
-
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/pkg/errors"
 )
 
 type (
@@ -42,12 +39,10 @@ func DefaultMapFromSchema(s *schema.Schema) SchemaDefaultFunc {
 
 //
 
-func DefaultUser() (interface{}, error) {
-	u, err := user.Current()
-	if err != nil {
-		return "", errors.Wrap(err, "failed to retrieve current operating system username")
-	}
-	return u.Username, nil
+func DefaultSshConfig() (interface{}, error) {
+	return map[string]interface{}{
+		"user": "root",
+	}, nil
 }
 
 func DefaultAddressFilter() (interface{}, error) {
@@ -59,7 +54,9 @@ func DefaultAddressFilter() (interface{}, error) {
 
 func DefaultAddressPriority() (interface{}, error) {
 	return map[string]interface{}{
-		"0.0.0.0/0": 0,
-		"::/0":      1,
+		"0.0.0.0/0": 1,
+		"::/0":      0,
+		// TODO: we could rearrange if we implement some way to check ipv6 connectivity
+		// because sometimes we have ipv6 address, but it is broken for some reason (misconfigured, etc)
 	}, nil
 }
