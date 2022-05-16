@@ -5,4 +5,4 @@ image:
 
 .PHONY: serve
 serve:
-	cd pub && python -mhttp.server 8666
+	cd pub && python -mhttp.server 8666 > serve.log

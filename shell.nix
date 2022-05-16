@@ -8,9 +8,6 @@ let
     stdenv
     buildGoModule
   ;
-  inherit (pkgs.nix-gitignore)
-    gitignoreSourcePure
-  ;
 
   shellWrapper = writeScript "shell-wrapper" ''
     #! ${stdenv.shell}
@@ -29,40 +26,12 @@ let
     ' "$@"
   '';
 
-  terraform = let
-    mkProvider = src: desc: buildGoModule {
-      pname = desc.name;
-      version = desc.version;
-      inherit src;
-
-      subPackages = ["."];
-      vendorSha256 = desc.vendorSha256 or null;
-
-      # Terraform allow checking the provider versions, but this breaks
-      # if the versions are not provided via file paths.
-      postBuild = "mv $NIX_BUILD_TOP/go/bin/${desc.name}{,_v${desc.version}}";
-      postInstall = with desc; ''
-        dir=$out/libexec/terraform-providers/${provider-source-address}/${version}/''${GOOS}_''${GOARCH}
-        mkdir -p "$dir"
-        mv $out/bin/* "$dir/terraform-provider-$(basename ${provider-source-address})_${version}"
-        rmdir $out/bin
-      '';
-      passthru = desc;
-    };
-
-    nixosSrc = gitignoreSourcePure ["/test" ./.gitignore] ./.;
-    nixos = mkProvider nixosSrc {
-      name = "terraform-provider-nixos";
-      version = "0.0.1";
-      provider-source-address = "registry.terraform.io/corpix/nixos";
-    };
-  in pkgs.terraform_1.withPlugins (p: [
+  terraform = pkgs.terraform_1.withPlugins (p: [
     p.null
     p.external
     p.vultr
-    nixos
+    (import ./default.nix { inherit pkgs; })
   ]);
-
 in stdenv.mkDerivation rec {
   name = "nix-shell";
   buildInputs = with pkgs; [
