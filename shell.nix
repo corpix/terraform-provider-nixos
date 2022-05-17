@@ -67,7 +67,9 @@ in stdenv.mkDerivation rec {
     export LANG="en_US.UTF-8"
     export NIX_PATH="nixpkgs=${nixpkgs}"
 
-    export TF_VAR_VULTR_API_KEY=
+    # tokens which are required during tests/release
+    # export TF_VAR_VULTR_API_KEY=$(pass ...)
+    # export GITHUB_TOKEN=$(pass ...)
 
     if [ ! -z "$PS1" ]
     then
