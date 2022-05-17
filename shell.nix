@@ -6,6 +6,7 @@ let
   inherit (pkgs)
     writeScript
     stdenv
+    fetchgit
     buildGoModule
   ;
 
@@ -26,6 +27,17 @@ let
     ' "$@"
   '';
 
+  terraform-plugin-docs = buildGoModule rec {
+    pname = "terraform-plugin-docs";
+    version = "0.8.1";
+    src = fetchgit {
+      url = "https://github.com/hashicorp/terraform-plugin-docs";
+      rev = "v${version}";
+      sha256 = "sha256-B1d/03RuR7Ns8VlRzcq86gAmuGDzY4yZAW9EFNW6SLE=";
+    };
+    vendorSha256 = "sha256-4soVDzu4gHT+Aq8/E4D4ib2aJu0/05mWgrVOs54ZW5E=";
+  };
+
   terraform = pkgs.terraform_1.withPlugins (p: [
     p.null
     p.external
@@ -39,7 +51,7 @@ in stdenv.mkDerivation rec {
     nix cacert curl utillinux coreutils
     git jq yq-go tmux findutils gnumake
     go gopls golangci-lint
-    terraform terraform-ls
+    terraform terraform-ls terraform-plugin-docs
     github-cli
     nixos-generators
     zip
