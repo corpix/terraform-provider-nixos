@@ -31,7 +31,7 @@ release: build
 	echo '{ "version": 1, "metadata": { "protocol_versions": ["5.0"] } }' \
 		| jq                                                          \
 		> terraform-provider-$(name)_$(version)_manifest.json
-	shasum -a 256 *.zip > terraform-provider-$(name)_$(version)_SHA256SUMS
+	shasum -a 256 *.zip *.json > terraform-provider-$(name)_$(version)_SHA256SUMS
 
 .PNESHELL: release/sign
 .PHONY: release/sign
