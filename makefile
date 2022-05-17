@@ -1,4 +1,36 @@
+.SHELLFLAGS += -e
+
 export TF_LOG ?= ERROR
+
+root       = $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
+result     = $(root)/result/libexec/terraform-providers
+namespace  = registry.terraform.io/corpix
+name       = nixos
+version   ?= 0.0.1
+target     = linux_amd64
+
+provider_root   = $(result)/$(namespace)/$(name)/$(version)/$(target)
+provider_binary = $(provider_root)/terraform-provider-$(name)_$(version)
+
+.PHONY: build
+build:
+	nix build -f ./default.nix              \
+		--argstr namespace $(namespace) \
+		--argstr name      $(name)      \
+		--argstr version   $(version)
+
+.ONESHELL: release
+.PHONY: release
+release: build
+	rm -rf release || true
+	mkdir -p release
+	cd release
+	cp $(provider_binary) terraform-provider-$(name)_v$(version)
+	zip terraform-provider-$(name)_$(version)_$(target).zip *
+	echo '{ "version": 1, "metadata": { "protocol_versions": ["5.0"] } }' \
+		| jq                                                          \
+		> terraform-provider-$(name)_$(version)_manifest.json
+	shasum -a 256 *.zip > terraform-provider-$(name)_$(version)_SHA256SUMS
 
 .PHONY: test
 test:

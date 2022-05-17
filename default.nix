@@ -1,4 +1,8 @@
-{ pkgs  ? import <nixpkgs> {} }: let
+{ pkgs      ? import <nixpkgs> {}
+, namespace ? "registry.terraform.io/corpix"
+, name      ? "nixos"
+, version   ? "0.0.1"
+}: let
   inherit (pkgs)
     buildGoModule
   ;
@@ -15,7 +19,7 @@
 in mkProvider
   (gitignoreSourcePure [./.gitignore] ./.)
   {
-    name = "terraform-provider-nixos";
-    version = "0.0.1";
-    provider-source-address = "registry.terraform.io/corpix/nixos";
+    name = "terraform-provider-${name}";
+    version = version;
+    provider-source-address = "${namespace}/${name}";
   }

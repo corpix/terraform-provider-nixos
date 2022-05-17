@@ -31,3 +31,4 @@ website/vendor
 .personal.*
 .tmux.conf
 /result
+/release

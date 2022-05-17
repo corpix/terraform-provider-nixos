@@ -41,6 +41,7 @@ in stdenv.mkDerivation rec {
     go gopls golangci-lint
     terraform terraform-ls
     nixos-generators
+    zip
   ];
   shellHook = ''
     export root=$(pwd)
