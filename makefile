@@ -21,6 +21,10 @@ build:
 		--argstr name      $(name)      \
 		--argstr version   $(version)
 
+.PHONY: docs
+docs:
+	tfplugindocs
+
 .PHONY: release
 release: build
 	rm -rf release || true

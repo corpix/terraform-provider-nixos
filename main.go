@@ -8,8 +8,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
-//go:generate tfplugindocs
-
 func main() {
 	var debugMode bool
 
