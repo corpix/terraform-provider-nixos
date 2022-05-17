@@ -6,8 +6,9 @@ root       = $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 result     = $(root)/result/libexec/terraform-providers
 namespace  = registry.terraform.io/corpix
 name       = nixos
-version   ?= 0.0.1
+version   ?= $(shell git rev-list --tags --max-count=1 | xargs git describe --tags)
 target     = linux_amd64
+gpg_key   ?= 190E440CECF0D6C28E22C8F7755E11DE93BDB108
 
 provider_root   = $(result)/$(namespace)/$(name)/$(version)/$(target)
 provider_binary = $(provider_root)/terraform-provider-$(name)_$(version)
@@ -31,6 +32,12 @@ release: build
 		| jq                                                          \
 		> terraform-provider-$(name)_$(version)_manifest.json
 	shasum -a 256 *.zip > terraform-provider-$(name)_$(version)_SHA256SUMS
+
+.PNESHELL: release/sign
+.PHONY: release/sign
+release/sign:
+	cd release
+	gpg --detach-sign --local-user $(gpg_key) terraform-provider-$(name)_$(version)_SHA256SUMS
 
 .PHONY: test
 test:
