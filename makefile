@@ -1,4 +1,5 @@
 .SHELLFLAGS += -e
+.ONESHELL:
 
 export TF_LOG ?= ERROR
 
@@ -20,7 +21,6 @@ build:
 		--argstr name      $(name)      \
 		--argstr version   $(version)
 
-.ONESHELL: release
 .PHONY: release
 release: build
 	rm -rf release || true
@@ -33,11 +33,16 @@ release: build
 		> terraform-provider-$(name)_$(version)_manifest.json
 	shasum -a 256 *.zip *.json > terraform-provider-$(name)_$(version)_SHA256SUMS
 
-.PNESHELL: release/sign
 .PHONY: release/sign
 release/sign:
 	cd release
 	gpg --detach-sign --local-user $(gpg_key) terraform-provider-$(name)_$(version)_SHA256SUMS
+
+.PHONY: release/publish
+release/publish:
+	cd release
+	gh config set prompt disabled
+	gh release create $(version) ./*
 
 .PHONY: test
 test:

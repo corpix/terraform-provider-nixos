@@ -40,6 +40,7 @@ in stdenv.mkDerivation rec {
     git jq yq-go tmux findutils gnumake
     go gopls golangci-lint
     terraform terraform-ls
+    github-cli
     nixos-generators
     zip
   ];
