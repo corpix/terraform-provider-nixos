@@ -138,7 +138,7 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[string]interface{} {
 	var (
 		err           error
-		settings []interface{}
+		settings      []interface{}
 		providerLevel = map[string]interface{}{}
 	)
 
@@ -220,28 +220,30 @@ func (p *Provider) NewSsh(resource *schema.ResourceData) *Ssh {
 		settings        = p.SshSettings(resource)
 		configMap       = p.SshConfigMap(settings)
 		bastionSettings = p.SshBastionSettings(resource)
-		bastionHost     = bastionSettings[KeySshHost].(string)
 	)
 
-	if len(bastionSettings) > 0 && bastionHost != "" {
-		bastionConfigMap := p.SshConfigMap(bastionSettings)
-		if bastionConfigMap.Len() > 0 {
-			bastionConfigOption := SshOptionConfigMap(bastionConfigMap.Pairs())
-			bastion := NewSsh(
-				bastionConfigOption,
-				SshOptionNonInteractive(),
-				SshOptionIORedirection("%h", "%p"),
-				SshOptionHost(bastionHost),
-			)
-			command, arguments, _ := bastion.Command()
-			configMap.Set(
-				SshConfigKeyProxyCommand,
-				strings.Join(append([]string{command}, arguments...), " "),
-			)
-			options = append(
-				options,
-				bastionConfigOption,
-			)
+	if len(bastionSettings) > 0 {
+		bastionHost, _ := bastionSettings[KeySshHost].(string)
+		if bastionHost != "" {
+			bastionConfigMap := p.SshConfigMap(bastionSettings)
+			if bastionConfigMap.Len() > 0 {
+				bastionConfigOption := SshOptionConfigMap(bastionConfigMap.Pairs())
+				bastion := NewSsh(
+					bastionConfigOption,
+					SshOptionNonInteractive(),
+					SshOptionIORedirection("%h", "%p"),
+					SshOptionHost(bastionHost),
+				)
+				command, arguments, _ := bastion.Command()
+				configMap.Set(
+					SshConfigKeyProxyCommand,
+					strings.Join(append([]string{command}, arguments...), " "),
+				)
+				options = append(
+					options,
+					bastionConfigOption,
+				)
+			}
 		}
 	}
 
@@ -280,7 +282,8 @@ func (p *Provider) Build(ctx context.Context, resource *schema.ResourceData) (De
 	nix := p.NewNix(resource)
 	defer nix.Close()
 
-	buildWrapperPath, _ := p.NixSettings(resource)[KeyNixBuildWrapper].(string)
+	nixSettings := p.NixSettings(resource)
+	buildWrapperPath, _ := nixSettings[KeyNixBuildWrapper].(string)
 	buildWrapper, err := NewNixWrapperFile(buildWrapperPath)
 	if err != nil {
 		return nil, err
