@@ -8,6 +8,34 @@ This provider is in alpha stage. Things may change.
 
 [Example directory](./example) contains examples for some cloud providers which I use. You may add your own, pull requests are welcome.
 
+## install
+
+### with Nix
+
+You could use following derivation to install latest version:
+
+```nix
+{ pkgs ? import <nixpkgs> {}, lib ? pkgs.lib, ... }: let
+  terraform = pkgs.terraform_1;
+  mkProvider = terraform.plugins.mkProvider;
+in terraform.withPlugins (p: [
+  # p.null
+  # p.external
+  # p.vultr
+  (mkProvider rec {
+    owner = "corpix";
+    repo = "terraform-provider-nixos";
+    rev = "0.0.2";
+    version = rev;
+    sha256 = "sha256-U9UjdaTX6SpnSh63KQKgKqim2BjFf1FLg/dPGv8ALa4=";
+    vendorSha256 = null;
+    provider-source-address = "registry.terraform.io/corpix/nixos";
+  })
+])
+```
+
+
+
 ## release
 
 - `make docs` (regenerate docs)
