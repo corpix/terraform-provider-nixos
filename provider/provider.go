@@ -138,10 +138,16 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[string]interface{} {
 	var (
 		err           error
-		providerLevel map[string]interface{}
+		settings []interface{}
+		providerLevel = map[string]interface{}{}
 	)
 
-	providerLevel = p.resolveSettings(p, path...).([]interface{})[0].(map[string]interface{})
+	settings = p.resolveSettings(p, path...).([]interface{})
+	if len(settings) == 0 {
+		return providerLevel
+	}
+
+	providerLevel = settings[0].(map[string]interface{})
 
 	if resource == nil {
 		return providerLevel
