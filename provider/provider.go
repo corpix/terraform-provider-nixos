@@ -136,13 +136,8 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 }
 
 func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[string]interface{} {
-	var (
-		err           error
-		settings      []interface{}
-		providerLevel = map[string]interface{}{}
-	)
-
-	settings = p.resolveSettings(p, path...).([]interface{})
+	providerLevel := map[string]interface{}{}
+	settings, _ := p.resolveSettings(p, path...).([]interface{})
 	if len(settings) == 0 {
 		return providerLevel
 	}
@@ -158,7 +153,7 @@ func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[s
 		resourceLevel := resourceLevelList[0].(map[string]interface{})
 		providerLevelCopy := make(map[string]interface{}, len(providerLevel))
 
-		err = mergo.MergeWithOverwrite(&providerLevelCopy, providerLevel)
+		err := mergo.MergeWithOverwrite(&providerLevelCopy, providerLevel)
 		if err != nil {
 			panic(err)
 		}
