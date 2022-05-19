@@ -73,7 +73,7 @@ func (i Instance) Read(ctx context.Context, data *schema.ResourceData, meta inte
 }
 
 func (i Instance) Update(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	return nil
+	return i.Create(ctx, data, meta)
 }
 
 func (i Instance) Delete(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
