@@ -203,6 +203,7 @@ var (
 		KeyNixosInstance: {
 			Description: "NixOS instance",
 
+			CustomizeDiff: instance.Diff,
 			CreateContext: instance.Create,
 			ReadContext:   instance.Read,
 			UpdateContext: instance.Update,
@@ -293,8 +294,8 @@ func New() *schema.Provider {
 
 	p.ConfigureContextFunc = func(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
 		p, err := NewProvider(&ResourceData{
-			ResourceData: d,
-			Schema:       p.Schema,
+			ResourceBox: d,
+			Schema:      p.Schema,
 		})
 		if err != nil {
 			return nil, diag.Diagnostics{{

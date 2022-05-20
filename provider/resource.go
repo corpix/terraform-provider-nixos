@@ -4,8 +4,12 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
+type ResourceBox interface {
+	Get(string) interface{}
+}
+
 type ResourceData struct {
-	*schema.ResourceData
+	ResourceBox
 	Schema map[string]*schema.Schema
 }
 
@@ -16,7 +20,7 @@ func (rd *ResourceData) Get(key string) interface{} {
 		return nil
 	}
 
-	v := rd.ResourceData.Get(key)
+	v := rd.ResourceBox.Get(key)
 	switch vt.Type { // some types can not have Default set
 	case schema.TypeSet:
 		if vt.DefaultFunc != nil && v.(*schema.Set).Len() == 0 {

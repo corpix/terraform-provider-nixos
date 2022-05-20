@@ -11,6 +11,26 @@ import (
 
 type Instance struct{}
 
+func (i Instance) derivationsToSchema(derivations Derivations) ([]interface{}, error) {
+	schema := make([]interface{}, len(derivations))
+	err := mapstructure.Decode(derivations, &schema)
+	if err != nil {
+		return nil, err
+	}
+	return schema, nil
+}
+
+func (i Instance) schemaToDerivations(schema []interface{}) (Derivations, error) {
+	derivations := make(Derivations, len(schema))
+	for n, schemaRecord := range schema {
+		err := mapstructure.Decode(schemaRecord, &derivations[n])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return derivations, nil
+}
+
 func (i Instance) fail(err error) diag.Diagnostics {
 	return diag.Diagnostics{{
 		Severity: diag.Error,
@@ -18,20 +38,50 @@ func (i Instance) fail(err error) diag.Diagnostics {
 	}}
 }
 
-func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var (
-		provider          = meta.(*Provider)
-		derivationsSchema []map[string]interface{}
+func (i Instance) Diff(ctx context.Context, data *schema.ResourceDiff, meta interface{}) error {
+	provider := meta.(*Provider)
 
-		retry     = provider.Get(KeyRetry).(int)
-		retryWait = time.Duration(provider.Get(KeyRetryWait).(int)) * time.Second
-	)
+	//
+
+	if data.HasChange(KeyDerivations) {
+		data.SetNewComputed(KeyDerivations)
+		return nil
+	}
+
+	derivationsSchema, ok := data.Get(KeyDerivations).([]interface{})
+	if !ok {
+		return nil
+	}
+
+	oldDerivations, err := i.schemaToDerivations(derivationsSchema)
+	if err != nil {
+		return err
+	}
+	newDerivations, err := provider.Build(ctx, data)
+	if err != nil {
+		return err
+	}
+
+	if oldDerivations.Hash() != newDerivations.Hash() {
+		data.SetNewComputed(KeyDerivations)
+		return nil
+	}
+
+	return nil
+}
+
+func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	provider := meta.(*Provider)
 
 	derivations, err := provider.Build(ctx, data)
 	if err != nil {
 		return i.fail(err)
 	}
 
+	//
+
+	retry := provider.Get(KeyRetry).(int)
+	retryWait := time.Duration(provider.Get(KeyRetryWait).(int)) * time.Second
 	for { // NOTE: terraform retry helpers are utter garbage relying on timeouts, here is more simple implementation
 		err = provider.Push(ctx, data, derivations)
 		if err != nil {
@@ -46,11 +96,7 @@ func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta in
 		break
 	}
 
-	derivationsSchema = make([]map[string]interface{}, len(derivations))
-	err = mapstructure.Decode(derivations, &derivationsSchema)
-	if err != nil {
-		return i.fail(err)
-	}
+	//
 
 	err = provider.Switch(ctx, data, derivations)
 	if err != nil {
@@ -60,6 +106,10 @@ func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta in
 	//
 
 	data.SetId(derivations.Hash())
+	derivationsSchema, err := i.derivationsToSchema(derivations)
+	if err != nil {
+		return i.fail(err)
+	}
 	err = data.Set(KeyDerivations, derivationsSchema)
 	if err != nil {
 		return i.fail(err)

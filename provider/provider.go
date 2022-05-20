@@ -16,7 +16,7 @@ import (
 //
 
 type Provider struct {
-	*ResourceData
+	ResourceBox
 
 	addressFilter   []*CIDR
 	addressPriority map[*IPNet]int
@@ -135,7 +135,7 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 	return value
 }
 
-func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[string]interface{} {
+func (p *Provider) settings(resource ResourceBox, path ...string) map[string]interface{} {
 	providerLevel := map[string]interface{}{}
 	settings, _ := p.resolveSettings(p, path...).([]interface{})
 	if len(settings) == 0 {
@@ -168,21 +168,21 @@ func (p *Provider) settings(resource *schema.ResourceData, path ...string) map[s
 	return providerLevel
 }
 
-func (p *Provider) NixSettings(resource *schema.ResourceData) map[string]interface{} {
+func (p *Provider) NixSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeyNix)
 }
 
-func (p *Provider) SshSettings(resource *schema.ResourceData) map[string]interface{} {
+func (p *Provider) SshSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySsh)
 }
 
-func (p *Provider) SshBastionSettings(resource *schema.ResourceData) map[string]interface{} {
+func (p *Provider) SshBastionSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySsh, KeySshBastion)
 }
 
 //
 
-func (p *Provider) NewNix(resource *schema.ResourceData) *Nix {
+func (p *Provider) NewNix(resource ResourceBox) *Nix {
 	var (
 		options  []NixOption
 		settings = p.NixSettings(resource)
@@ -208,7 +208,7 @@ func (p *Provider) NewNix(resource *schema.ResourceData) *Nix {
 	return NewNix(options...)
 }
 
-func (p *Provider) NewSsh(resource *schema.ResourceData) *Ssh {
+func (p *Provider) NewSsh(resource ResourceBox) *Ssh {
 	var (
 		options []SshOption
 
@@ -273,7 +273,7 @@ func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
 
 //
 
-func (p *Provider) Build(ctx context.Context, resource *schema.ResourceData) (Derivations, error) {
+func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations, error) {
 	nix := p.NewNix(resource)
 	defer nix.Close()
 
@@ -331,7 +331,7 @@ func (p *Provider) Build(ctx context.Context, resource *schema.ResourceData) (De
 	return derivations, nil
 }
 
-func (p *Provider) Push(ctx context.Context, resource *schema.ResourceData, drvs Derivations) error {
+func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivations) error {
 	nix := p.NewNix(resource)
 	defer nix.Close()
 
@@ -364,7 +364,7 @@ func (p *Provider) Push(ctx context.Context, resource *schema.ResourceData, drvs
 	return nil
 }
 
-func (p *Provider) Switch(ctx context.Context, resource *schema.ResourceData, drvs Derivations) error {
+func (p *Provider) Switch(ctx context.Context, resource ResourceBox, drvs Derivations) error {
 	address, err := p.Address(resource.Get(KeyAddress))
 	if err != nil {
 		panic(err)
@@ -426,8 +426,8 @@ func (p *Provider) Close() error { return nil }
 
 //
 
-func NewProvider(d *ResourceData) (*Provider, error) {
-	p := &Provider{ResourceData: d}
+func NewProvider(d ResourceBox) (*Provider, error) {
+	p := &Provider{ResourceBox: d}
 
 	err := p.init()
 	if err != nil {
