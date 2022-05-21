@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	uuid "github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/mitchellh/mapstructure"
@@ -29,6 +30,14 @@ func (i Instance) schemaToDerivations(schema []interface{}) (Derivations, error)
 		}
 	}
 	return derivations, nil
+}
+
+func (i Instance) generateId() string {
+	out, err := uuid.GenerateUUID()
+	if err != nil {
+		panic(err)
+	}
+	return out
 }
 
 func (i Instance) fail(err error) diag.Diagnostics {
@@ -105,7 +114,9 @@ func (i Instance) Create(ctx context.Context, data *schema.ResourceData, meta in
 
 	//
 
-	data.SetId(derivations.Hash())
+	if data.Id() == "" {
+		data.SetId(i.generateId())
+	}
 	derivationsSchema, err := i.derivationsToSchema(derivations)
 	if err != nil {
 		return i.fail(err)
