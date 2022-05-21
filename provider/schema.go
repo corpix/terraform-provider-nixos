@@ -34,6 +34,7 @@ const (
 	//
 
 	KeyNix             = "nix"
+	KeyNixMode         = "mode"
 	KeyNixBuildWrapper = "build_wrapper"
 
 	KeyNixProfile          = "profile"
@@ -114,6 +115,12 @@ var (
 		MaxItems:    1,
 		Elem: &schema.Resource{
 			Schema: map[string]*schema.Schema{
+				KeyNixMode: {
+					Description: "Nix mode (0 - compat, 1 - default)",
+					Type:        schema.TypeInt,
+					Optional:    true,
+					Default:     int(NixModeCompat),
+				},
 				KeyNixBuildWrapper: {
 					Description: "Path to the configuration wrapper in Nix language (function which returns drv_path & out_path)",
 					Type:        schema.TypeString,

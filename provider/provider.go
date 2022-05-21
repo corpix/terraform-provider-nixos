@@ -188,6 +188,12 @@ func (p *Provider) NewNix(resource ResourceBox) *Nix {
 		settings = p.NixSettings(resource)
 	)
 
+	// NOTE: should be first option in set
+	// because other options may rely on mode
+	if mode, ok := settings[KeyNixMode].(int); ok {
+		options = append(options, NixOptionMode(NixMode(mode)))
+	}
+
 	if showTrace, ok := settings[KeyNixShowTrace].(bool); ok && showTrace {
 		options = append(options, NixOptionShowTrace())
 	}
@@ -200,8 +206,6 @@ func (p *Provider) NewNix(resource ResourceBox) *Nix {
 
 	options = append(
 		options,
-		// TODO: check nix version
-		NixOptionExperimentalFeatures(NixFeatureCommand),
 		NixOptionSsh(p.NewSsh(resource)),
 	)
 

@@ -10,11 +10,13 @@ import (
 
 type (
 	Nix struct {
+		Mode        NixMode
 		Arguments   []string
 		Environment Environment
 		Ssh         *Ssh
 	}
 	NixOption  func(*Nix)
+	NixMode    uint8
 	NixFeature = string
 
 	//
@@ -64,6 +66,15 @@ type (
 
 const (
 	NixEnvironmentSshOpts = "NIX_SSHOPTS"
+)
+
+const (
+	// NixMode exists to address some bugs in nix
+	// - https://github.com/NixOS/nix/pull/6522
+	//
+
+	NixModeCompat  NixMode = 0
+	NixModeDefault NixMode = 1
 )
 
 const (
@@ -138,33 +149,33 @@ func (n *Nix) Build(options ...NixBuildCommandOption) *NixBuildCommand {
 }
 
 func NixBuildCommandOptionFile(fd File) NixBuildCommandOption {
-	return func(b *NixBuildCommand) {
-		b.Arguments = append(b.Arguments, []string{"-f", fd.Name()}...)
+	return func(n *NixBuildCommand) {
+		n.Arguments = append(n.Arguments, []string{"-f", fd.Name()}...)
 	}
 }
 
 func NixBuildCommandOptionArg(name string, expr string) NixBuildCommandOption {
-	return func(b *NixBuildCommand) {
-		b.Arguments = append(b.Arguments, []string{"--arg", name, expr}...)
+	return func(n *NixBuildCommand) {
+		n.Arguments = append(n.Arguments, []string{"--arg", name, expr}...)
 	}
 }
 
 func NixBuildCommandOptionArgStr(name string, value string) NixBuildCommandOption {
-	return func(b *NixBuildCommand) {
-		b.Arguments = append(b.Arguments, []string{"--argstr", name, value}...)
+	return func(n *NixBuildCommand) {
+		n.Arguments = append(n.Arguments, []string{"--argstr", name, value}...)
 	}
 }
 
 func NixBuildCommandOptionNoLink() NixBuildCommandOption {
-	return func(b *NixBuildCommand) {
-		b.Arguments = append(b.Arguments, "--no-link")
+	return func(n *NixBuildCommand) {
+		n.Arguments = append(n.Arguments, "--no-link")
 	}
 }
 
 func NixBuildCommandOptionJSON() NixBuildCommandOption {
-	return func(b *NixBuildCommand) {
-		b.Arguments = append(b.Arguments, "--json")
-		b.Unmarshaler = NewUnmarshalerJSON()
+	return func(n *NixBuildCommand) {
+		n.Arguments = append(n.Arguments, "--json")
+		n.Unmarshaler = NewUnmarshalerJSON()
 	}
 }
 
@@ -196,21 +207,21 @@ func NixCopyCommandOptionTo(protocol NixCopyProtocol, to string) NixCopyCommandO
 	}
 }
 
-func NixCopyCommandOptionPath(path string) NixCopyCommandOption {
-	return func(b *NixCopyCommand) {
-		b.Arguments = append(b.Arguments, path)
+func NixCopyCommandOptionFrom(protocol NixCopyProtocol, from string) NixCopyCommandOption {
+	return func(n *NixCopyCommand) {
+		n.Arguments = append(n.Arguments, "--from", protocol.Path(from))
 	}
 }
 
-func NixCopyCommandOptionFrom(protocol NixCopyProtocol, from string) NixCopyCommandOption {
-	return func(b *NixCopyCommand) {
-		b.Arguments = append(b.Arguments, "--from", protocol.Path(from))
+func NixCopyCommandOptionPath(path string) NixCopyCommandOption {
+	return func(n *NixCopyCommand) {
+		n.Arguments = append(n.Arguments, path)
 	}
 }
 
 func NixCopyCommandOptionUseSubstitutes() NixCopyCommandOption {
-	return func(b *NixCopyCommand) {
-		b.Arguments = append(b.Arguments, "--use-substitutes")
+	return func(n *NixCopyCommand) {
+		n.Arguments = append(n.Arguments, "--use-substitutes")
 	}
 }
 
@@ -266,13 +277,26 @@ func NixProfileInstallCommandOptionProfile(location string) NixProfileInstallCom
 
 func NixProfileInstallCommandOptionDerivation(path string) NixProfileInstallCommandOption {
 	return func(n *NixProfileInstallCommand) {
-		n.Arguments = append(n.Arguments, "--derivation", path)
+		switch n.Profile.Nix.Mode {
+		case NixModeCompat:
+			n.Arguments = append(n.Arguments, "--set", path)
+		default:
+			n.Arguments = append(n.Arguments, "--derivation", path)
+		}
 	}
 }
 
 func (n *NixProfileInstallCommand) Command() (string, []string, []CommandOption) {
-	command, arguments, options := n.Profile.Command()
-	return command, append(append(arguments, "install"), n.Arguments...), options
+	switch n.Profile.Nix.Mode {
+	case NixModeCompat:
+		_, _, options := n.Profile.Command()
+		arguments := make([]string, len(n.Arguments))
+		copy(arguments, n.Arguments)
+		return "nix-env", arguments, options
+	default:
+		command, arguments, options := n.Profile.Command()
+		return command, append(append(arguments, "install"), n.Arguments...), options
+	}
 }
 
 func (n *NixProfileInstallCommand) Execute(v interface{}) error {
@@ -299,12 +323,25 @@ func NixOptionSshOpts(opts ...string) NixOption {
 	}
 }
 
+func NixOptionMode(mode NixMode) NixOption {
+	return func(n *Nix) {
+		n.Mode = mode
+		switch mode {
+		case NixModeCompat:
+			NixOptionExperimentalFeatures(NixFeatureCommand)(n)
+		}
+	}
+}
+
 func NixOptionExperimentalFeatures(feature ...NixFeature) NixOption {
 	return func(n *Nix) {
-		n.Arguments = append(
-			n.Arguments, "--extra-experimental-features",
-			strings.Join(feature, ","),
-		)
+		switch n.Mode {
+		case NixModeCompat:
+			n.Arguments = append(
+				n.Arguments, "--extra-experimental-features",
+				strings.Join(feature, ","),
+			)
+		}
 	}
 }
 
