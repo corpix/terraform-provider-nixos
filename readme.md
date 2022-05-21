@@ -25,9 +25,9 @@ in terraform.withPlugins (p: [
   (mkProvider rec {
     owner = "corpix";
     repo = "terraform-provider-nixos";
-    rev = "0.0.2";
+    rev = "0.0.6";
     version = rev;
-    sha256 = "sha256-U9UjdaTX6SpnSh63KQKgKqim2BjFf1FLg/dPGv8ALa4=";
+    sha256 = "sha256-E+RGiebTZYlV4lf0dRWiCNv6i7rAADSyWkjpAJpVfUM=";
     vendorSha256 = null;
     provider-source-address = "registry.terraform.io/corpix/nixos";
   })
