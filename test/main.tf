@@ -23,10 +23,10 @@ provider "nixos" {
       host = "127.0.0.1"
       port = 2222
       config = {
-	userKnownHostsFile = "/dev/null"
-	strictHostKeyChecking = "no"
-	pubKeyAuthentication = "no"
-	passwordAuthentication = "yes"
+        userKnownHostsFile = "/dev/null"
+        strictHostKeyChecking = "no"
+        pubKeyAuthentication = "no"
+        passwordAuthentication = "yes"
       }
     }
   }
