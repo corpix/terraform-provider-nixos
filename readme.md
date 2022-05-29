@@ -8,6 +8,44 @@ This provider is in alpha stage. Things may change.
 
 [Example directory](./example) contains examples for some cloud providers which I use. You may add your own, pull requests are welcome.
 
+Here is a simple example which shows how to apply configuration from `test.nix` to `127.0.0.1`:
+
+> test.tf
+
+```hcl
+terraform {
+  required_providers {
+    nixos = {
+      source = "corpix/nixos"
+      version = "0.0.6"
+    }
+  }
+}
+
+provider "nixos" {}
+
+resource "nixos_instance" "test" {
+  address = ["127.0.0.1"]
+  configuration = "test.nix"
+}
+```
+
+> test.nix
+
+```nix
+{ config, ... }: {
+  config = {
+    fileSystems.rootfs = {
+      label = "rootfs";
+      device = "/dev/sda";
+      fsType = "ext4";
+      mountPoint = "/";
+    };
+    boot.loader.grub.devices = ["/dev/sda"];
+  };
+}
+```
+
 ## install
 
 ### with Nix
@@ -34,7 +72,26 @@ in terraform.withPlugins (p: [
 ])
 ```
 
+### with Terraform
 
+You could install provider from Terraform registry.
+
+> Registry may be blocked for your country by HashiCorp (for rexample it is blocked for Russia)
+
+Add this to your `.tf` file:
+
+```hcl
+terraform {
+  required_providers {
+    nixos = {
+      source = "corpix/nixos"
+      version = "0.0.6"
+    }
+  }
+}
+```
+
+Then run `terraform init`.
 
 ## release
 
