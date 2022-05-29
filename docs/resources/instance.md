@@ -24,6 +24,7 @@ NixOS instance
 
 - `derivations` (Block List) List of derivations which is built during apply (see [below for nested schema](#nestedblock--derivations))
 - `nix` (Block Set, Max: 1) Nix package manager configuration options (see [below for nested schema](#nestedblock--nix))
+- `secret` (Block Set) Describes secret which should be transfered to host (see [below for nested schema](#nestedblock--secret))
 - `settings` (String) Optional settings (encoded with HCL function jsonencode()) to pass into Nix configuration derivation as attribute set (any configuration key could be specified)
 - `ssh` (Block Set, Max: 1) SSH protocol settings (see [below for nested schema](#nestedblock--ssh))
 
@@ -49,10 +50,26 @@ Optional:
 - `activation_script` (String) Path to the system profile activation script
 - `build_wrapper` (String) Path to the configuration wrapper in Nix language (function which returns drv_path & out_path)
 - `cores` (Number) Number of CPU cores  which Nix should use to perform builds
+- `mode` (Number) Nix mode (0 - compat, 1 - default)
 - `output` (String) System derivation output name
 - `profile` (String) Path to the current system profile
 - `show_trace` (Boolean) Show Nix package manager trace on error
 - `use_substitutes` (Boolean) Wether or not should Nix use substitutes
+
+
+<a id="nestedblock--secret"></a>
+### Nested Schema for `secret`
+
+Required:
+
+- `destination` (String) Secret file destination on the target host
+- `source` (String) Secret file on the host which should be transfered to destination
+
+Optional:
+
+- `group` (String) Secret file owner groupname
+- `owner` (String) Secret file owner username
+- `permissions` (Number) Secret file destination permissions (in octal)
 
 
 <a id="nestedblock--ssh"></a>
