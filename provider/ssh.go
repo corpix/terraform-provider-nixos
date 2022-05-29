@@ -166,10 +166,10 @@ func (s *Ssh) Command() (string, []string, []CommandOption) {
 	return "ssh", s.Arguments, nil
 }
 
-func (s *Ssh) Execute(v interface{}) error {
+func (s *Ssh) Execute(result interface{}) error {
 	defer s.Finalize()
 	command, arguments, options := s.Command()
-	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, nil, result, options...)
 }
 
 func (s *Ssh) Finalize() {

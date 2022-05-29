@@ -42,4 +42,16 @@ resource "nixos_instance" "test" {
   ssh {
     port = 2222
   }
+
+  secret {
+    source = "./secrets/key1"
+    destination = "/root/secrets/key1"
+  }
+  secret {
+    source = "./secrets/subdir/key2"
+    destination = "/root/secrets/subdir/key2"
+    owner = "nobody"
+    group = "nogroup"
+    permissions = 400
+  }
 }

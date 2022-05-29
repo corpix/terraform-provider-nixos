@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -28,8 +29,8 @@ type (
 	}
 
 	RemoteCommand struct {
-		Cmd Command
 		Ssh *Ssh
+		Cmd Command
 	}
 
 	Environment map[string][]string
@@ -76,14 +77,20 @@ func (c *RemoteCommand) Close() error {
 
 func NewRemoteCommand(s *Ssh, c Command) *RemoteCommand {
 	return &RemoteCommand{
-		Cmd: c,
 		Ssh: s,
+		Cmd: c,
 	}
 }
 
 var _ Command = &RemoteCommand{}
 
 //
+
+func CommandOptionStdin(stdin io.Reader) CommandOption {
+	return func(cmd *Cmd) {
+		cmd.Stdin = stdin
+	}
+}
 
 func CommandOptionEnv(env Environment) CommandOption {
 	return func(cmd *Cmd) {

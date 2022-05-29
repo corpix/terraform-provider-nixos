@@ -55,6 +55,17 @@ const (
 	KeySshConfig  = "config"
 	KeySshBastion = "bastion"
 
+	//
+
+	KeySecret            = "secret"
+	KeySecretSource      = "source"
+	KeySecretDestination = "destination"
+	KeySecretOwner       = "owner"
+	KeySecretGroup       = "group"
+	KeySecretPermissions = "permissions"
+
+	//
+
 	KeyDerivations       = "derivations"
 	KeyDerivationPath    = "path"
 	KeyDerivationOutputs = "outputs"
@@ -105,6 +116,44 @@ var (
 					},
 				},
 			),
+		},
+		Optional: true,
+	})
+	ProviderSchemaSecret = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "Describes secret which should be transfered to host",
+		Type:        schema.TypeSet,
+		MinItems:    0,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				KeySecretSource: {
+					Description: "Secret file on the host which should be transfered to destination",
+					Type:        schema.TypeString,
+					Required:    true,
+				},
+				KeySecretDestination: {
+					Description: "Secret file destination on the target host",
+					Type:        schema.TypeString,
+					Required:    true,
+				},
+				KeySecretOwner: {
+					Description: "Secret file owner username",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "root",
+				},
+				KeySecretGroup: {
+					Description: "Secret file owner groupname",
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     "root",
+				},
+				KeySecretPermissions: {
+					Description: "Secret file destination permissions (in octal)",
+					Type:        schema.TypeInt,
+					Optional:    true,
+					Default:     600,
+				},
+			},
 		},
 		Optional: true,
 	})
@@ -200,8 +249,10 @@ var (
 			Optional:    true,
 			DefaultFunc: DefaultAddressPriority,
 		},
-		KeyNix: ProviderSchemaNix,
-		KeySsh: ProviderSchemaSsh,
+
+		KeyNix:    ProviderSchemaNix,
+		KeySsh:    ProviderSchemaSsh,
+		KeySecret: ProviderSchemaSecret,
 	}
 
 	//
@@ -235,8 +286,9 @@ var (
 					Default:     "{}",
 				},
 
-				KeyNix: ProviderSchemaNix,
-				KeySsh: ProviderSchemaSsh,
+				KeyNix:    ProviderSchemaNix,
+				KeySsh:    ProviderSchemaSsh,
+				KeySecret: ProviderSchemaSecret,
 
 				KeyDerivations: {
 					Description: "List of derivations which is built during apply",

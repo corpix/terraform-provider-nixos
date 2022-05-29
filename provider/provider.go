@@ -135,22 +135,21 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 	return value
 }
 
+// retrieve hashmap from set with maxItems == 1
 func (p *Provider) settings(resource ResourceBox, path ...string) map[string]interface{} {
 	providerLevel := map[string]interface{}{}
 	settings, _ := p.resolveSettings(p, path...).([]interface{})
 	if len(settings) == 0 {
 		return providerLevel
 	}
-
 	providerLevel = settings[0].(map[string]interface{})
-
 	if resource == nil {
 		return providerLevel
 	}
 
-	resourceLevelList := p.resolveSettings(resource, path...).([]interface{})
-	if len(resourceLevelList) > 0 {
-		resourceLevel := resourceLevelList[0].(map[string]interface{})
+	resourceLevelSettings := p.resolveSettings(resource, path...).([]interface{})
+	if len(resourceLevelSettings) > 0 {
+		resourceLevel := resourceLevelSettings[0].(map[string]interface{})
 		providerLevelCopy := make(map[string]interface{}, len(providerLevel))
 
 		err := mergo.MergeWithOverwrite(&providerLevelCopy, providerLevel)
@@ -168,6 +167,33 @@ func (p *Provider) settings(resource ResourceBox, path ...string) map[string]int
 	return providerLevel
 }
 
+// retrieve list of hashmap's from set with maxItems == infinity
+func (p *Provider) settingsSet(resource ResourceBox, path ...string) []map[string]interface{} {
+	settings, _ := p.resolveSettings(p, path...).([]interface{})
+	providerLevel := make([]map[string]interface{}, len(settings))
+	if len(settings) == 0 {
+		return providerLevel
+	}
+
+	for n, setting := range settings {
+		providerLevel[n] = setting.(map[string]interface{})
+	}
+	if resource == nil {
+		return providerLevel
+	}
+
+	resourceLevelSettings := p.resolveSettings(resource, path...).([]interface{})
+	if len(resourceLevelSettings) > 0 {
+		resourceLevel := make([]map[string]interface{}, len(resourceLevelSettings))
+		for n, resourceLevelSetting := range resourceLevelSettings {
+			resourceLevel[n] = resourceLevelSetting.(map[string]interface{})
+		}
+		providerLevel = append(providerLevel, resourceLevel...)
+	}
+
+	return providerLevel
+}
+
 func (p *Provider) NixSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeyNix)
 }
@@ -178,6 +204,10 @@ func (p *Provider) SshSettings(resource ResourceBox) map[string]interface{} {
 
 func (p *Provider) SshBastionSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySsh, KeySshBastion)
+}
+
+func (p *Provider) SecretsSet(resource ResourceBox) []map[string]interface{} {
+	return p.settingsSet(resource, KeySecret)
 }
 
 //
@@ -275,6 +305,34 @@ func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
 	return sshConfigMap
 }
 
+func (p *Provider) NewSecrets(resource ResourceBox) *Secrets {
+	schemaSecrets := p.settingsSet(resource, KeySecret)
+	definedSecrets := make([]*Secret, len(schemaSecrets))
+
+	n := 0
+	for _, schemaSecret := range schemaSecrets {
+		if schemaSecret[KeySecretSource] == nil && schemaSecret[KeySecretDestination] == nil {
+			// FIXME: in case no secrets providen set will contain
+			// single item with defaults values
+			// I don't know why, but looks like terraform SDK
+			// automagically set DefaultFunc for sets and
+			// this interfere with my wrapper in resource.go
+			// I hate you, terraform, poorly engineered piece of crap!
+			continue
+		}
+
+		definedSecrets[n] = &Secret{
+			Source:      schemaSecret[KeySecretSource].(string),
+			Destination: schemaSecret[KeySecretDestination].(string),
+			Owner:       schemaSecret[KeySecretOwner].(string),
+			Group:       schemaSecret[KeySecretGroup].(string),
+			Permissions: schemaSecret[KeySecretPermissions].(int),
+		}
+		n++
+	}
+	return NewSecrets(definedSecrets[:n])
+}
+
 //
 
 func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations, error) {
@@ -343,6 +401,19 @@ func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivati
 	if err != nil {
 		return err
 	}
+
+	secretsCopy, err := p.NewSecrets(resource).Copy(nix.Ssh.With(SshOptionHost(address.String())))
+	if err != nil {
+		return err
+	}
+	defer secretsCopy.Close()
+
+	err = secretsCopy.Execute(nil)
+	if err != nil {
+		return err
+	}
+
+	//
 
 	for _, drv := range drvs {
 		for _, path := range drv.Outputs {

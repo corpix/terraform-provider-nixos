@@ -135,9 +135,9 @@ func (n *Nix) Command() (string, []string, []CommandOption) {
 	return "nix", arguments, options
 }
 
-func (n *Nix) Execute(v interface{}) error {
+func (n *Nix) Execute(result interface{}) error {
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, nil, result, options...)
 }
 
 func (n *Nix) Build(options ...NixBuildCommandOption) *NixBuildCommand {
@@ -184,9 +184,9 @@ func (n *NixBuildCommand) Command() (string, []string, []CommandOption) {
 	return command, append(append(arguments, "build"), n.Arguments...), options
 }
 
-func (n *NixBuildCommand) Execute(v interface{}) error {
+func (n *NixBuildCommand) Execute(result interface{}) error {
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, n.Unmarshaler, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, n.Unmarshaler, result, options...)
 }
 
 func (n *NixBuildCommand) Close() error { return nil }
@@ -230,9 +230,9 @@ func (n *NixCopyCommand) Command() (string, []string, []CommandOption) {
 	return command, append(append(arguments, "copy"), n.Arguments...), options
 }
 
-func (n *NixCopyCommand) Execute(v interface{}) error {
+func (n *NixCopyCommand) Execute(result interface{}) error {
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, nil, result, options...)
 }
 
 func (n *NixCopyCommand) Close() error { return nil }
@@ -252,9 +252,9 @@ func (n *NixProfileCommand) Command() (string, []string, []CommandOption) {
 	return command, append(append(arguments, "profile"), n.Arguments...), options
 }
 
-func (n *NixProfileCommand) Execute(v interface{}) error {
+func (n *NixProfileCommand) Execute(result interface{}) error {
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, nil, result, options...)
 }
 
 func (n *NixProfileCommand) Close() error { return nil }
@@ -299,9 +299,9 @@ func (n *NixProfileInstallCommand) Command() (string, []string, []CommandOption)
 	}
 }
 
-func (n *NixProfileInstallCommand) Execute(v interface{}) error {
+func (n *NixProfileInstallCommand) Execute(result interface{}) error {
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, nil, v, options...)
+	return CommandExecuteUnmarshal(command, arguments, nil, result, options...)
 }
 
 func (n *NixProfileInstallCommand) Close() error { return nil }

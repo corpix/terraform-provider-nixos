@@ -107,4 +107,10 @@ resource "nixos_instance" "example" {
       }
     }
   })
+
+  secret {
+    source = "./secrets/key"
+    # /root/secrets will be created during secrets upload
+    destination = "/root/secrets/key"
+  }
 }
