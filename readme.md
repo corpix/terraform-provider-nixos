@@ -17,7 +17,7 @@ terraform {
   required_providers {
     nixos = {
       source = "corpix/nixos"
-      version = "0.0.6"
+      version = "0.0.7"
     }
   }
 }
@@ -57,15 +57,12 @@ You could use following derivation to install latest version:
   terraform = pkgs.terraform_1;
   mkProvider = terraform.plugins.mkProvider;
 in terraform.withPlugins (p: [
-  # p.null
-  # p.external
-  # p.vultr
   (mkProvider rec {
     owner = "corpix";
     repo = "terraform-provider-nixos";
-    rev = "0.0.6";
+    rev = "0.0.7";
     version = rev;
-    sha256 = "sha256-E+RGiebTZYlV4lf0dRWiCNv6i7rAADSyWkjpAJpVfUM=";
+    sha256 = "sha256-Ede1i1EAjvSxGRG3CmetkIZf/C7pzw944PF1Bvuud/o=";
     vendorSha256 = null;
     provider-source-address = "registry.terraform.io/corpix/nixos";
   })
@@ -85,7 +82,7 @@ terraform {
   required_providers {
     nixos = {
       source = "corpix/nixos"
-      version = "0.0.6"
+      version = "0.0.7"
     }
   }
 }
