@@ -4,30 +4,147 @@ import (
 	"archive/tar"
 	"bytes"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 )
 
 type (
-	Secret struct {
+	SecretData struct {
 		Source      string
 		Destination string
 		Owner       string
 		Group       string
 		Permissions int
 	}
-
-	Secrets struct {
-		secrets []*Secret
+	SecretsData []*SecretData
+	Secrets     struct {
+		Provider SecretsProvider
+		Secrets  SecretsData
 	}
+
+	SecretsProviderName string
+	SecretsProvider     interface {
+		Name() string
+		Get(source string) ([]byte, error)
+	}
+	SecretsProviderFilesystem struct{}
+	SecretsProviderCommand    struct {
+		Command     string
+		Arguments   []string
+		Environment Environment
+	}
+	SecretsProviderGopass struct {
+		*SecretsProviderCommand
+	}
+
 	SecretsCopy struct {
 		*RemoteCommand
 		Secrets *Secrets
 	}
 	SecretsCopyOption func(*SecretsCopy)
 )
+
+const (
+	SecretsProviderNameFilesystem SecretsProviderName = "filesystem"
+	SecretsProviderNameCommand    SecretsProviderName = "command"
+	SecretsProviderNameGopass     SecretsProviderName = "gopass"
+)
+
+var (
+	SecretsProviders = []string{
+		string(SecretsProviderNameFilesystem),
+		string(SecretsProviderNameCommand),
+		string(SecretsProviderNameGopass),
+	}
+)
+
+//
+
+func (p *SecretsProviderFilesystem) Name() string {
+	return string(SecretsProviderNameFilesystem)
+}
+
+func (p *SecretsProviderFilesystem) Get(source string) ([]byte, error) {
+	file, err := os.Open(source)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	stat, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	if stat.IsDir() {
+		return nil, errors.Errorf(
+			"got directory as secret at %q, this is not supported",
+			source,
+		)
+	}
+
+	buf, err := ioutil.ReadAll(file)
+	if err != nil {
+		return nil, errors.Wrapf(
+			err, "failed to read from file descriptor associated with %q",
+			source,
+		)
+	}
+
+	return buf, nil
+}
+
+func NewSecretsProviderFilesystem() *SecretsProviderFilesystem {
+	return &SecretsProviderFilesystem{}
+}
+
+//
+
+func (p *SecretsProviderCommand) Name() string {
+	return string(SecretsProviderNameCommand)
+}
+
+func (p *SecretsProviderCommand) Get(source string) ([]byte, error) {
+	buf, err := CommandExecute(p.Command, p.Arguments, CommandOptionEnv(p.Environment))
+	if err != nil {
+		return nil, errors.Wrapf(
+			err, "failed to get content of %q using %q %v",
+			source, p.Command, p.Arguments,
+		)
+	}
+
+	return buf, nil
+}
+
+func NewSecretsProviderCommand(command string, arguments []string, environment map[string]string) *SecretsProviderCommand {
+	env := NewEnvironment()
+	for k, v := range environment {
+		env.Set(k, v)
+	}
+	return &SecretsProviderCommand{
+		Command:     command,
+		Arguments:   arguments,
+		Environment: env,
+	}
+}
+
+//
+
+func NewSecretsProviderGopass(store string) *SecretsProviderGopass {
+	env := map[string]string{}
+	if store != "" {
+		env["PASSWORD_STORE_DIR"] = os.ExpandEnv(store)
+	}
+
+	return &SecretsProviderGopass{
+		SecretsProviderCommand: NewSecretsProviderCommand("gopass", nil, env),
+	}
+}
+
+//
 
 func (s *Secrets) fromOctal(n int) int {
 	var (
@@ -49,40 +166,30 @@ func (s *Secrets) Stream() (io.Reader, error) {
 	w := tar.NewWriter(buf)
 	defer w.Close()
 
-	for _, secret := range s.secrets {
-		file, err := os.Open(secret.Source)
+	for _, secret := range s.Secrets {
+		secretBytes, err := s.Provider.Get(secret.Source)
 		if err != nil {
-			return nil, err
-		}
-		defer file.Close()
-
-		stat, err := file.Stat()
-		if err != nil {
-			return nil, err
-		}
-
-		if stat.IsDir() {
-			return nil, errors.Errorf(
-				"got directory as secret at %q, this is not yet supported",
-				secret.Source,
+			return nil, errors.Wrapf(
+				err, "failed to get secret %q from provider %q",
+				secret.Source, s.Provider.Name(),
 			)
 		}
 
 		err = w.WriteHeader(&tar.Header{
 			Name:    secret.Destination,
-			Size:    stat.Size(),
+			Size:    int64(len(secretBytes)),
 			Uname:   secret.Owner,
 			Gname:   secret.Group,
 			Mode:    int64(s.fromOctal(secret.Permissions)),
-			ModTime: stat.ModTime(),
+			ModTime: time.Now(),
 		})
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to write tar header of %q", secret.Source)
 		}
 
-		_, err = io.Copy(w, file)
+		_, err = w.Write(secretBytes)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to copy contents of %q into tar writer", secret.Source)
+			return nil, errors.Wrapf(err, "failed to write contents of %q into tar writer", secret.Source)
 		}
 	}
 
@@ -107,8 +214,11 @@ func (s *Secrets) Copy(ssh *Ssh) (*SecretsCopy, error) {
 	return c, nil
 }
 
-func NewSecrets(secrets []*Secret) *Secrets {
-	return &Secrets{secrets: secrets}
+func NewSecrets(p SecretsProvider, s SecretsData) *Secrets {
+	return &Secrets{
+		Provider: p,
+		Secrets:  s,
+	}
 }
 
 var (

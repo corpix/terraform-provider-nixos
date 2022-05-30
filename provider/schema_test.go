@@ -42,6 +42,17 @@ provider "nixos" {
       }
     }
   }
+  secrets {
+    provider = "command"
+    command {
+      name = "echo"
+      arguments = ["here is your node key"]
+    }
+  }
+  secret {
+    source = "node-key"
+    destination = "/root/secrets/node-key"
+  }
 }
 
 resource "nixos_instance" "test" {

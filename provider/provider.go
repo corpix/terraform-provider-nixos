@@ -147,7 +147,7 @@ func (p *Provider) settings(resource ResourceBox, path ...string) map[string]int
 		return providerLevel
 	}
 
-	resourceLevelSettings := p.resolveSettings(resource, path...).([]interface{})
+	resourceLevelSettings, _ := p.resolveSettings(resource, path...).([]interface{})
 	if len(resourceLevelSettings) > 0 {
 		resourceLevel := resourceLevelSettings[0].(map[string]interface{})
 		providerLevelCopy := make(map[string]interface{}, len(providerLevel))
@@ -182,7 +182,7 @@ func (p *Provider) settingsSet(resource ResourceBox, path ...string) []map[strin
 		return providerLevel
 	}
 
-	resourceLevelSettings := p.resolveSettings(resource, path...).([]interface{})
+	resourceLevelSettings, _ := p.resolveSettings(resource, path...).([]interface{})
 	if len(resourceLevelSettings) > 0 {
 		resourceLevel := make([]map[string]interface{}, len(resourceLevelSettings))
 		for n, resourceLevelSetting := range resourceLevelSettings {
@@ -204,6 +204,10 @@ func (p *Provider) SshSettings(resource ResourceBox) map[string]interface{} {
 
 func (p *Provider) SshBastionSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySsh, KeySshBastion)
+}
+
+func (p *Provider) SecretsSettings(resource ResourceBox) map[string]interface{} {
+	return p.settings(resource, KeySecrets)
 }
 
 func (p *Provider) SecretsSet(resource ResourceBox) []map[string]interface{} {
@@ -305,23 +309,62 @@ func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
 	return sshConfigMap
 }
 
-func (p *Provider) NewSecrets(resource ResourceBox) *Secrets {
-	schemaSecrets := p.settingsSet(resource, KeySecret)
-	definedSecrets := make([]*Secret, len(schemaSecrets))
+func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
+	schemaSecrets := p.SecretsSettings(resource)
+	providerName := schemaSecrets[KeySecretsProvider].(string)
+
+	var provider SecretsProvider
+	switch strings.ToLower(providerName) {
+	case string(SecretsProviderNameFilesystem):
+		// NOTE: this does nothing now, but we may have filesystem options in future
+		_ = p.settings(resource, KeySecrets, KeySecretsProviderFilesystem)
+		provider = NewSecretsProviderFilesystem()
+	case string(SecretsProviderNameCommand):
+		settings := p.settings(resource, KeySecrets, KeySecretsProviderCommand)
+
+		name := settings[KeySecretsProviderCommandName].(string)
+		argumentsRaw := settings[KeySecretsProviderCommandArguments].([]interface{})
+		arguments := make([]string, len(argumentsRaw))
+		for n, argument := range argumentsRaw {
+			arguments[n] = argument.(string)
+		}
+		environmentRaw := settings[KeySecretsProviderCommandEnvironment].(map[string]interface{})
+		environment := make(map[string]string, len(environmentRaw))
+		for k, value := range environmentRaw {
+			environment[k] = value.(string)
+		}
+
+		provider = NewSecretsProviderCommand(
+			name,
+			arguments,
+			environment,
+		)
+	case string(SecretsProviderNameGopass):
+		settings := p.settings(resource, KeySecrets, KeySecretsProviderGopass)
+		store, _ := settings[KeySecretsProviderGopassStore].(string)
+		provider = NewSecretsProviderGopass(store)
+	default:
+		return nil, errors.Errorf(
+			"unsupported secrets provider %q, supported providers are: %v",
+			providerName, SecretsProviders,
+		)
+	}
+
+	//
+
+	schemaSecretsSet := p.SecretsSet(resource)
+	definedSecrets := make([]*SecretData, len(schemaSecrets))
 
 	n := 0
-	for _, schemaSecret := range schemaSecrets {
+	for _, schemaSecret := range schemaSecretsSet {
 		if schemaSecret[KeySecretSource] == nil && schemaSecret[KeySecretDestination] == nil {
 			// FIXME: in case no secrets providen set will contain
 			// single item with defaults values
-			// I don't know why, but looks like terraform SDK
-			// automagically set DefaultFunc for sets and
-			// this interfere with my wrapper in resource.go
-			// I hate you, terraform, poorly engineered piece of crap!
+			// probably this is because of my wrapper around schema sets
 			continue
 		}
 
-		definedSecrets[n] = &Secret{
+		definedSecrets[n] = &SecretData{
 			Source:      schemaSecret[KeySecretSource].(string),
 			Destination: schemaSecret[KeySecretDestination].(string),
 			Owner:       schemaSecret[KeySecretOwner].(string),
@@ -330,7 +373,7 @@ func (p *Provider) NewSecrets(resource ResourceBox) *Secrets {
 		}
 		n++
 	}
-	return NewSecrets(definedSecrets[:n])
+	return NewSecrets(provider, definedSecrets[:n]), nil
 }
 
 //
@@ -402,7 +445,12 @@ func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivati
 		return err
 	}
 
-	secretsCopy, err := p.NewSecrets(resource).Copy(nix.Ssh.With(SshOptionHost(address.String())))
+	secrets, err := p.NewSecrets(resource)
+	if err != nil {
+		return err
+	}
+
+	secretsCopy, err := secrets.Copy(nix.Ssh.With(SshOptionHost(address.String())))
 	if err != nil {
 		return err
 	}

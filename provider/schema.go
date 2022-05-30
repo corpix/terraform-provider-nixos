@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"hash/crc32"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -54,6 +55,18 @@ const (
 	KeySshPort    = "port"
 	KeySshConfig  = "config"
 	KeySshBastion = "bastion"
+
+	//
+
+	KeySecrets                           = "secrets"
+	KeySecretsProvider                   = "provider"
+	KeySecretsProviderFilesystem         = "filesystem"
+	KeySecretsProviderCommand            = "command"
+	KeySecretsProviderCommandName        = "name"
+	KeySecretsProviderCommandArguments   = "arguments"
+	KeySecretsProviderCommandEnvironment = "environment"
+	KeySecretsProviderGopass             = "gopass"
+	KeySecretsProviderGopassStore        = "store"
 
 	//
 
@@ -116,6 +129,81 @@ var (
 					},
 				},
 			),
+		},
+		Optional: true,
+	})
+
+	ProviderSchemaSecretsProviderFilesystem = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "Filesystem secrets provider settings",
+		Type:        schema.TypeSet,
+		MinItems:    0,
+		MaxItems:    1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{},
+		},
+		Optional: true,
+	})
+	ProviderSchemaSecretsProviderCommand = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "Command secrets provider settings",
+		Type:        schema.TypeSet,
+		MinItems:    0,
+		MaxItems:    1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				KeySecretsProviderCommandName: {
+					Description: "Provider command name (will be looked up in PATH) to use to retrieve secret",
+					Type:        schema.TypeString,
+					Required:    true,
+				},
+				KeySecretsProviderCommandArguments: {
+					Description: "Provider command arguments to prepend to secret source",
+					Type:        schema.TypeList,
+					Elem:        &schema.Schema{Type: schema.TypeString},
+					Optional:    true,
+				},
+				KeySecretsProviderCommandEnvironment: {
+					Description: "Provider command environment variables",
+					Type:        schema.TypeMap,
+					Elem:        &schema.Schema{Type: schema.TypeString},
+					Optional:    true,
+				},
+			},
+		},
+		Optional: true,
+	})
+	ProviderSchemaSecretsProviderGopass = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "GoPass secrets provider settings",
+		Type:        schema.TypeSet,
+		MinItems:    0,
+		MaxItems:    1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				KeySecretsProviderGopassStore: {
+					Description: "Password store directory location",
+					Type:        schema.TypeString,
+					Optional:    true,
+				},
+			},
+		},
+		Optional: true,
+	})
+	ProviderSchemaSecrets = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "Describes secrets settings",
+		Type:        schema.TypeSet,
+		MinItems:    0,
+		MaxItems:    1,
+		Elem: &schema.Resource{
+			Schema: map[string]*schema.Schema{
+				KeySecretsProvider: {
+					Description: fmt.Sprintf("Secrets provider to use, available: %v", SecretsProviders),
+					Type:        schema.TypeString,
+					Optional:    true,
+					Default:     string(SecretsProviderNameFilesystem),
+				},
+				KeySecretsProviderFilesystem: ProviderSchemaSecretsProviderFilesystem,
+				KeySecretsProviderCommand:    ProviderSchemaSecretsProviderCommand,
+				KeySecretsProviderGopass:     ProviderSchemaSecretsProviderGopass,
+			},
 		},
 		Optional: true,
 	})
@@ -250,9 +338,10 @@ var (
 			DefaultFunc: DefaultAddressPriority,
 		},
 
-		KeyNix:    ProviderSchemaNix,
-		KeySsh:    ProviderSchemaSsh,
-		KeySecret: ProviderSchemaSecret,
+		KeyNix:     ProviderSchemaNix,
+		KeySsh:     ProviderSchemaSsh,
+		KeySecrets: ProviderSchemaSecrets,
+		KeySecret:  ProviderSchemaSecret,
 	}
 
 	//
@@ -286,9 +375,10 @@ var (
 					Default:     "{}",
 				},
 
-				KeyNix:    ProviderSchemaNix,
-				KeySsh:    ProviderSchemaSsh,
-				KeySecret: ProviderSchemaSecret,
+				KeyNix:     ProviderSchemaNix,
+				KeySsh:     ProviderSchemaSsh,
+				KeySecrets: ProviderSchemaSecrets,
+				KeySecret:  ProviderSchemaSecret,
 
 				KeyDerivations: {
 					Description: "List of derivations which is built during apply",
