@@ -25,6 +25,7 @@ NixOS instance
 - `derivations` (Block List) List of derivations which is built during apply (see [below for nested schema](#nestedblock--derivations))
 - `nix` (Block Set, Max: 1) Nix package manager configuration options (see [below for nested schema](#nestedblock--nix))
 - `secret` (Block Set) Describes secret which should be transfered to host (see [below for nested schema](#nestedblock--secret))
+- `secrets` (Block Set, Max: 1) Describes secrets settings (see [below for nested schema](#nestedblock--secrets))
 - `settings` (String) Optional settings (encoded with HCL function jsonencode()) to pass into Nix configuration derivation as attribute set (any configuration key could be specified)
 - `ssh` (Block Set, Max: 1) SSH protocol settings (see [below for nested schema](#nestedblock--ssh))
 
@@ -70,6 +71,42 @@ Optional:
 - `group` (String) Secret file owner groupname
 - `owner` (String) Secret file owner username
 - `permissions` (Number) Secret file destination permissions (in octal)
+
+
+<a id="nestedblock--secrets"></a>
+### Nested Schema for `secrets`
+
+Optional:
+
+- `command` (Block Set, Max: 1) Command secrets provider settings (see [below for nested schema](#nestedblock--secrets--command))
+- `filesystem` (Block Set, Max: 1) Filesystem secrets provider settings (see [below for nested schema](#nestedblock--secrets--filesystem))
+- `gopass` (Block Set, Max: 1) GoPass secrets provider settings (see [below for nested schema](#nestedblock--secrets--gopass))
+- `provider` (String) Secrets provider to use, available: [filesystem command gopass]
+
+<a id="nestedblock--secrets--command"></a>
+### Nested Schema for `secrets.command`
+
+Required:
+
+- `name` (String) Provider command name (will be looked up in PATH) to use to retrieve secret
+
+Optional:
+
+- `arguments` (List of String) Provider command arguments to prepend to secret source
+- `environment` (Map of String) Provider command environment variables
+
+
+<a id="nestedblock--secrets--filesystem"></a>
+### Nested Schema for `secrets.filesystem`
+
+
+<a id="nestedblock--secrets--gopass"></a>
+### Nested Schema for `secrets.gopass`
+
+Optional:
+
+- `store` (String) Password store directory location
+
 
 
 <a id="nestedblock--ssh"></a>
