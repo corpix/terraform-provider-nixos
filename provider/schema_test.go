@@ -16,6 +16,27 @@ var providerFactories = map[string]func() (*schema.Provider, error){
 	},
 }
 
+const nixosMinimalConfig = `
+provider "nixos" {
+  nix {
+    activation_action = "" # skip activation because we are running in docker
+  }
+  ssh {
+    port = 2222
+    config = {
+      userKnownHostsFile = "/dev/null"
+      strictHostKeyChecking = "no"
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
+    }
+  }
+}
+
+resource "nixos_instance" "test" {
+  address = ["127.0.0.1", "::1"]
+  configuration = "../test/test.nix"
+}
+`
 const nixosSampleConfig = `
 provider "nixos" {
   retry = 0
@@ -91,6 +112,15 @@ func TestResourceNixosInstance(t *testing.T) {
 			PreCheck:          func() {},
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{
+				{
+					Config: nixosMinimalConfig,
+					Check: resource.ComposeTestCheckFunc(
+						CheckEqual(t, "nixos_instance.test", "address.0", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test", "address.1", "::1"),
+						CheckEqual(t, "nixos_instance.test", "address.2", ""),
+						CheckEqual(t, "nixos_instance.test", "configuration", "../test/test.nix"),
+					),
+				},
 				{
 					Config: nixosSampleConfig,
 					Check: resource.ComposeTestCheckFunc(
