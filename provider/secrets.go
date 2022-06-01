@@ -3,27 +3,38 @@ package provider
 import (
 	"archive/tar"
 	"bytes"
+	"crypto/sha256"
 	"io"
 	"io/ioutil"
 	"math"
 	"os"
 	"time"
 
+	"encoding/hex"
+
 	"github.com/pkg/errors"
+	"golang.org/x/crypto/pbkdf2"
 )
 
 type (
-	SecretData struct {
+	SecretDescription struct {
 		Source      string
 		Destination string
 		Owner       string
 		Group       string
 		Permissions int
 	}
-	SecretsData []*SecretData
-	Secrets     struct {
+	SecretData struct {
+		*LockedBuffer
+		*SecretDescription
+	}
+	SecretsDescriptions []*SecretDescription
+	SecretsData         []*SecretData
+
+	Secrets struct {
 		Provider SecretsProvider
-		Secrets  SecretsData
+		Secrets  SecretsDescriptions
+		data     SecretsData
 	}
 
 	SecretsProviderName string
@@ -48,6 +59,8 @@ type (
 	SecretsCopyOption func(*SecretsCopy)
 )
 
+const SecretDataKeyLen = 32
+
 const (
 	SecretsProviderNameFilesystem SecretsProviderName = "filesystem"
 	SecretsProviderNameCommand    SecretsProviderName = "command"
@@ -61,6 +74,39 @@ var (
 		string(SecretsProviderNameGopass),
 	}
 )
+
+//
+
+func (s *SecretData) Hash(salt []byte, iter int) []byte {
+	return pbkdf2.Key(
+		s.Bytes(), salt, iter, SecretDataKeyLen,
+		sha256.New,
+	)
+}
+
+func (s *SecretData) HashString(salt []byte, iter int) string {
+	return hex.EncodeToString(s.Hash(salt, iter))
+}
+
+//
+
+func (s SecretsData) Hash(salt []byte, iter int) []byte {
+	h := sha256.New()
+	for _, secret := range s {
+		_, _ = h.Write(secret.Hash(salt, iter))
+	}
+	return h.Sum(nil)
+}
+
+func (s SecretsData) HashString(salt []byte, iter int) string {
+	return hex.EncodeToString(s.Hash(salt, iter))
+}
+
+func (s SecretsData) Destroy() {
+	for _, secret := range s {
+		secret.Destroy()
+	}
+}
 
 //
 
@@ -161,23 +207,20 @@ func (s *Secrets) fromOctal(n int) int {
 	return res
 }
 
-func (s *Secrets) Stream() (io.Reader, error) {
+func (s *Secrets) Tar() (io.Reader, error) {
 	buf := bytes.NewBuffer(nil)
 	w := tar.NewWriter(buf)
 	defer w.Close()
 
-	for _, secret := range s.Secrets {
-		secretBytes, err := s.Provider.Get(secret.Source)
-		if err != nil {
-			return nil, errors.Wrapf(
-				err, "failed to get secret %q from provider %q",
-				secret.Source, s.Provider.Name(),
-			)
-		}
+	data, err := s.Data()
+	if err != nil {
+		return nil, err
+	}
 
-		err = w.WriteHeader(&tar.Header{
+	for _, secret := range data {
+		err := w.WriteHeader(&tar.Header{
 			Name:    secret.Destination,
-			Size:    int64(len(secretBytes)),
+			Size:    int64(secret.Size()),
 			Uname:   secret.Owner,
 			Gname:   secret.Group,
 			Mode:    int64(s.fromOctal(secret.Permissions)),
@@ -187,7 +230,7 @@ func (s *Secrets) Stream() (io.Reader, error) {
 			return nil, errors.Wrapf(err, "failed to write tar header of %q", secret.Source)
 		}
 
-		_, err = w.Write(secretBytes)
+		_, err = w.Write(secret.Bytes())
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to write contents of %q into tar writer", secret.Source)
 		}
@@ -196,8 +239,37 @@ func (s *Secrets) Stream() (io.Reader, error) {
 	return buf, nil
 }
 
+func (s *Secrets) Data() (SecretsData, error) {
+	if s.data != nil {
+		return s.data, nil
+	}
+
+	data := make(SecretsData, len(s.Secrets))
+	for n, secret := range s.Secrets {
+		buf, err := s.Provider.Get(secret.Source)
+		if err != nil {
+			// NOTE: destroy memory in case of error
+			for _, secret := range data[:n] {
+				secret.Destroy()
+			}
+			return nil, errors.Wrapf(
+				err, "failed to get secret %q from provider %q",
+				secret.Source, s.Provider.Name(),
+			)
+		}
+
+		data[n] = &SecretData{
+			LockedBuffer:      NewLockedBuffer(buf),
+			SecretDescription: secret,
+		}
+	}
+
+	s.data = data
+	return data, nil
+}
+
 func (s *Secrets) Copy(ssh *Ssh) (*SecretsCopy, error) {
-	stream, err := s.Stream()
+	stream, err := s.Tar()
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +286,15 @@ func (s *Secrets) Copy(ssh *Ssh) (*SecretsCopy, error) {
 	return c, nil
 }
 
-func NewSecrets(p SecretsProvider, s SecretsData) *Secrets {
+func (s *Secrets) Close() error {
+	if s.data != nil {
+		s.data.Destroy()
+		s.data = nil
+	}
+	return nil
+}
+
+func NewSecrets(p SecretsProvider, s SecretsDescriptions) *Secrets {
 	return &Secrets{
 		Provider: p,
 		Secrets:  s,

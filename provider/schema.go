@@ -58,7 +58,13 @@ const (
 
 	//
 
-	KeySecrets                           = "secrets"
+	KeySecrets = "secrets"
+
+	KeySecretsFingerprint              = "secrets_fingerprint"
+	KeySecretsFingerprintSum           = "sum"
+	KeySecretsFingerprintSalt          = "salt"
+	KeySecretsFingerprintKdfIterations = "kdf_iterations"
+
 	KeySecretsProvider                   = "provider"
 	KeySecretsProviderFilesystem         = "filesystem"
 	KeySecretsProviderCommand            = "command"
@@ -187,26 +193,34 @@ var (
 		},
 		Optional: true,
 	})
+	ProviderSchemaSecretsMap = map[string]*schema.Schema{
+		KeySecretsProvider: {
+			Description: fmt.Sprintf("Secrets provider to use, available: %v", SecretsProviders),
+			Type:        schema.TypeString,
+			Optional:    true,
+			Default:     string(SecretsProviderNameFilesystem),
+		},
+		KeySecretsProviderFilesystem: ProviderSchemaSecretsProviderFilesystem,
+		KeySecretsProviderCommand:    ProviderSchemaSecretsProviderCommand,
+		KeySecretsProviderGopass:     ProviderSchemaSecretsProviderGopass,
+	}
 	ProviderSchemaSecrets = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "Describes secrets settings",
 		Type:        schema.TypeSet,
 		MinItems:    0,
 		MaxItems:    1,
 		Elem: &schema.Resource{
-			Schema: map[string]*schema.Schema{
-				KeySecretsProvider: {
-					Description: fmt.Sprintf("Secrets provider to use, available: %v", SecretsProviders),
-					Type:        schema.TypeString,
-					Optional:    true,
-					Default:     string(SecretsProviderNameFilesystem),
-				},
-				KeySecretsProviderFilesystem: ProviderSchemaSecretsProviderFilesystem,
-				KeySecretsProviderCommand:    ProviderSchemaSecretsProviderCommand,
-				KeySecretsProviderGopass:     ProviderSchemaSecretsProviderGopass,
-			},
+			Schema: ProviderSchemaSecretsMap,
 		},
 		Optional: true,
 	})
+	ProviderSchemaSecretsChecksum = &schema.Schema{
+		Description: "Secrets salt, kdf iterations, checksum which are used to maintain state",
+		Type:        schema.TypeMap,
+		Elem:        &schema.Schema{Type: schema.TypeString},
+		Computed:    true,
+	}
+	// FIXME: do we need defaults here?
 	ProviderSchemaSecret = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "Describes secret which should be transfered to host",
 		Type:        schema.TypeSet,
@@ -245,6 +259,28 @@ var (
 		},
 		Optional: true,
 	})
+
+	ProviderSchemaDerivationsComputedMap = map[string]*schema.Schema{
+		// TODO: support custom Nix store paths
+		// probably this change will be breaking because
+		// to gain more wide compatibility we need to trim
+		// current Nix store prefix
+		// or maybe we could do it better?
+		// (goal: Alice has /nix/store, Bob /storage/nix -> minimize state changes between Alice & Bob)
+		KeyDerivationPath: {
+			Description: "Path to the derivation in Nix store",
+			Type:        schema.TypeString,
+			Optional:    true,
+			Computed:    true,
+		},
+		KeyDerivationOutputs: {
+			Description: "Derivation outputs paths in the Nix store",
+			Type:        schema.TypeMap,
+			Elem:        &schema.Schema{Type: schema.TypeString},
+			Optional:    true,
+			Computed:    true,
+		},
+	}
 
 	ProviderSchemaNix = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "Nix package manager configuration options",
@@ -383,31 +419,9 @@ var (
 				KeyDerivations: {
 					Description: "List of derivations which is built during apply",
 					Type:        schema.TypeList,
-					Elem: &schema.Resource{
-						Schema: map[string]*schema.Schema{
-							// TODO: support custom Nix store paths
-							// probably this change will be breaking because
-							// to gain more wide compatibility we need to trim
-							// current Nix store prefix
-							// or maybe we could do it better?
-							// (goal: Alice has /nix/store, Bob /storage/nix -> minimize state changes between Alice & Bob)
-							KeyDerivationPath: {
-								Description: "Path to the derivation in Nix store",
-								Type:        schema.TypeString,
-								Optional:    true,
-								Computed:    true,
-							},
-							KeyDerivationOutputs: {
-								Description: "Derivation outputs paths in the Nix store",
-								Type:        schema.TypeMap,
-								Elem:        &schema.Schema{Type: schema.TypeString},
-								Optional:    true,
-								Computed:    true,
-							},
-						},
-					},
-					Optional: true,
-					Computed: true,
+					Elem:        &schema.Resource{Schema: ProviderSchemaDerivationsComputedMap},
+					Optional:    true,
+					Computed:    true,
 				},
 			},
 		},

@@ -23,10 +23,12 @@ type Provider struct {
 }
 
 func (p *Provider) Address(rawAddrs interface{}) (IP, error) {
-	var (
-		ip    IP
-		addrs = FilterIPAddress(p.addressFilter, ToIPAddrs(rawAddrs))
-	)
+	var ip IP
+	if rawAddrs == nil {
+		return ip, errors.Errorf("rawAddrs should not be nil")
+	}
+
+	var addrs = FilterIPAddress(p.addressFilter, ToIPAddrs(rawAddrs))
 	if len(addrs) == 0 {
 		return ip, errors.Errorf("no address from list %q matched with current address filters", addrs)
 	}
@@ -206,6 +208,25 @@ func (p *Provider) SshBastionSettings(resource ResourceBox) map[string]interface
 	return p.settings(resource, KeySsh, KeySshBastion)
 }
 
+func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
+	sshConfigMap := NewSshConfigMap()
+	if sshHost, ok := settings[KeySshHost].(string); ok && len(sshHost) > 0 {
+		sshConfigMap.Set(SshConfigKeyHost, sshHost)
+	}
+	if sshUser, ok := settings[KeySshUser].(string); ok && len(sshUser) > 0 {
+		sshConfigMap.Set(SshConfigKeyUser, sshUser)
+	}
+	if sshPort, ok := settings[KeySshPort].(int); ok && sshPort > 0 {
+		sshConfigMap.Set(SshConfigKeyPort, strconv.Itoa(sshPort))
+	}
+	if sshConfig, ok := settings[KeySshConfig].(map[string]interface{}); ok {
+		for k, v := range sshConfig {
+			sshConfigMap.Set(k, v.(string))
+		}
+	}
+	return sshConfigMap
+}
+
 func (p *Provider) SecretsSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySecrets)
 }
@@ -290,25 +311,6 @@ func (p *Provider) NewSsh(resource ResourceBox) *Ssh {
 	return NewSsh(options...)
 }
 
-func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
-	sshConfigMap := NewSshConfigMap()
-	if sshHost, ok := settings[KeySshHost].(string); ok && len(sshHost) > 0 {
-		sshConfigMap.Set(SshConfigKeyHost, sshHost)
-	}
-	if sshUser, ok := settings[KeySshUser].(string); ok && len(sshUser) > 0 {
-		sshConfigMap.Set(SshConfigKeyUser, sshUser)
-	}
-	if sshPort, ok := settings[KeySshPort].(int); ok && sshPort > 0 {
-		sshConfigMap.Set(SshConfigKeyPort, strconv.Itoa(sshPort))
-	}
-	if sshConfig, ok := settings[KeySshConfig].(map[string]interface{}); ok {
-		for k, v := range sshConfig {
-			sshConfigMap.Set(k, v.(string))
-		}
-	}
-	return sshConfigMap
-}
-
 func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
 	schemaSecrets := p.SecretsSettings(resource)
 	providerName := schemaSecrets[KeySecretsProvider].(string)
@@ -353,7 +355,7 @@ func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
 	//
 
 	schemaSecretsSet := p.SecretsSet(resource)
-	definedSecrets := make([]*SecretData, len(schemaSecrets))
+	definedSecrets := make([]*SecretDescription, len(schemaSecrets))
 
 	n := 0
 	for _, schemaSecret := range schemaSecretsSet {
@@ -364,7 +366,7 @@ func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
 			continue
 		}
 
-		definedSecrets[n] = &SecretData{
+		definedSecrets[n] = &SecretDescription{
 			Source:      schemaSecret[KeySecretSource].(string),
 			Destination: schemaSecret[KeySecretDestination].(string),
 			Owner:       schemaSecret[KeySecretOwner].(string),
@@ -436,21 +438,15 @@ func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations
 	return derivations, nil
 }
 
-func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivations) error {
-	nix := p.NewNix(resource)
-	defer nix.Close()
-
+func (p *Provider) CopySecrets(ctx context.Context, resource ResourceBox, secrets *Secrets) error {
 	address, err := p.Address(resource.Get(KeyAddress))
 	if err != nil {
 		return err
 	}
+	ssh := p.NewSsh(resource).With(SshOptionHost(address.String()))
+	defer ssh.Close()
 
-	secrets, err := p.NewSecrets(resource)
-	if err != nil {
-		return err
-	}
-
-	secretsCopy, err := secrets.Copy(nix.Ssh.With(SshOptionHost(address.String())))
+	secretsCopy, err := secrets.Copy(ssh)
 	if err != nil {
 		return err
 	}
@@ -461,7 +457,17 @@ func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivati
 		return err
 	}
 
-	//
+	return nil
+}
+
+func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivations) error {
+	nix := p.NewNix(resource)
+	defer nix.Close()
+
+	address, err := p.Address(resource.Get(KeyAddress))
+	if err != nil {
+		return err
+	}
 
 	for _, drv := range drvs {
 		for _, path := range drv.Outputs {
@@ -490,7 +496,7 @@ func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivati
 func (p *Provider) Switch(ctx context.Context, resource ResourceBox, drvs Derivations) error {
 	address, err := p.Address(resource.Get(KeyAddress))
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	var (
