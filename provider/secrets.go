@@ -190,7 +190,7 @@ func NewSecretsProviderGopass(store string) *SecretsProviderGopass {
 	}
 
 	return &SecretsProviderGopass{
-		SecretsProviderCommand: NewSecretsProviderCommand("gopass", []string{"show"}, env),
+		SecretsProviderCommand: NewSecretsProviderCommand("gopass", []string{"show", "-n"}, env),
 	}
 }
 
