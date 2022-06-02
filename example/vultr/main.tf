@@ -97,13 +97,13 @@ resource "nixos_instance" "example" {
   settings = jsonencode({
     users = {
       extraUsers = {
-	root = {
-	  openssh = {
-	    authorizedKeys = {
-	      keys = [vultr_ssh_key.example.ssh_key]
-	    }
-	  }
-	}
+        root = {
+          openssh = {
+            authorizedKeys = {
+              keys = [vultr_ssh_key.example.ssh_key]
+            }
+          }
+        }
       }
     }
   })
