@@ -9,6 +9,13 @@ let
   ;
 in {
   config = {
+    boot.initrd.availableKernelModules = [
+      "ata_piix"
+      "sr_mod"
+      "uhci_hcd"
+      "virtio_blk"
+      "virtio_pci"
+    ];
     users = {
       mutableUsers = false;
       extraUsers.root = {
@@ -18,8 +25,8 @@ in {
       };
     };
 
-    fileSystems.rootfs = {
-      label = "rootfs";
+    fileSystems.nixos = {
+      label = "nixos";
       device = "/dev/vda1";
       fsType = "ext4";
       mountPoint = "/";
