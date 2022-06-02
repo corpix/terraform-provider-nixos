@@ -154,7 +154,11 @@ func (p *SecretsProviderCommand) Name() string {
 }
 
 func (p *SecretsProviderCommand) Get(source string) ([]byte, error) {
-	buf, err := CommandExecute(p.Command, p.Arguments, CommandOptionEnv(p.Environment))
+	arguments := make([]string, len(p.Arguments)+1)
+	copy(arguments, p.Arguments)
+	arguments[len(p.Arguments)] = source
+
+	buf, err := CommandExecute(p.Command, arguments, CommandOptionEnv(p.Environment))
 	if err != nil {
 		return nil, errors.Wrapf(
 			err, "failed to get content of %q using %q %v",
@@ -186,7 +190,7 @@ func NewSecretsProviderGopass(store string) *SecretsProviderGopass {
 	}
 
 	return &SecretsProviderGopass{
-		SecretsProviderCommand: NewSecretsProviderCommand("gopass", nil, env),
+		SecretsProviderCommand: NewSecretsProviderCommand("gopass", []string{"show"}, env),
 	}
 }
 
