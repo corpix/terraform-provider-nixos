@@ -187,6 +187,10 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 		return i.fail(err)
 	}
 	defer secrets.Close()
+	secretsData, err := secrets.Data()
+	if err != nil {
+		return i.fail(err)
+	}
 
 	//
 
@@ -225,7 +229,17 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 	if resource.Id() == "" {
 		resource.SetId(i.generateId())
 	}
+
+	secretsFingerprintSchema, err := i.secretsFingerprintToSchema(secretsData)
+	if err != nil {
+		return i.fail(err)
+	}
 	derivationsSchema, err := i.derivationsToSchema(derivations)
+	if err != nil {
+		return i.fail(err)
+	}
+
+	err = resource.Set(KeySecretsFingerprint, secretsFingerprintSchema)
 	if err != nil {
 		return i.fail(err)
 	}

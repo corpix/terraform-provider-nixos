@@ -214,8 +214,8 @@ var (
 		},
 		Optional: true,
 	})
-	ProviderSchemaSecretsChecksum = &schema.Schema{
-		Description: "Secrets salt, kdf iterations, checksum which are used to maintain state",
+	ProviderSchemaSecretsFingerprint = &schema.Schema{
+		Description: "Secrets state fingerprint information which is used to maintain state",
 		Type:        schema.TypeMap,
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Computed:    true,
@@ -416,6 +416,7 @@ var (
 				KeySecrets: ProviderSchemaSecrets,
 				KeySecret:  ProviderSchemaSecret,
 
+				KeySecretsFingerprint: ProviderSchemaSecretsFingerprint,
 				KeyDerivations: {
 					Description: "List of derivations which is built during apply",
 					Type:        schema.TypeList,
