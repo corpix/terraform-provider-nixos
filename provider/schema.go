@@ -60,10 +60,10 @@ const (
 
 	KeySecrets = "secrets"
 
-	KeySecretsFingerprint              = "secrets_fingerprint"
-	KeySecretsFingerprintSum           = "sum"
-	KeySecretsFingerprintSalt          = "salt"
-	KeySecretsFingerprintKdfIterations = "kdf_iterations"
+	KeySecretFingerprint              = "secret_fingerprint"
+	KeySecretFingerprintSum           = "sum"
+	KeySecretFingerprintSalt          = "salt"
+	KeySecretFingerprintKdfIterations = "kdf_iterations"
 
 	KeySecretsProvider                   = "provider"
 	KeySecretsProviderFilesystem         = "filesystem"
@@ -214,7 +214,7 @@ var (
 		},
 		Optional: true,
 	})
-	ProviderSchemaSecretsFingerprint = &schema.Schema{
+	ProviderSchemaSecretFingerprint = &schema.Schema{
 		Description: "Secrets state fingerprint information which is used to maintain state",
 		Type:        schema.TypeMap,
 		Elem:        &schema.Schema{Type: schema.TypeString},
@@ -416,7 +416,7 @@ var (
 				KeySecrets: ProviderSchemaSecrets,
 				KeySecret:  ProviderSchemaSecret,
 
-				KeySecretsFingerprint: ProviderSchemaSecretsFingerprint,
+				KeySecretFingerprint: ProviderSchemaSecretFingerprint,
 				KeyDerivations: {
 					Description: "List of derivations which is built during apply",
 					Type:        schema.TypeList,

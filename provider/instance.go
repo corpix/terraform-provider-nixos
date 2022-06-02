@@ -57,27 +57,27 @@ func (i Instance) secretsFingerprintToSchema(secrets SecretsData) (map[string]in
 	sum := secrets.Hash(salt, kdfIterations)
 
 	return map[string]interface{}{
-		KeySecretsFingerprintSum:           hex.EncodeToString(sum),
-		KeySecretsFingerprintSalt:          hex.EncodeToString(salt),
-		KeySecretsFingerprintKdfIterations: strconv.Itoa(kdfIterations),
+		KeySecretFingerprintSum:           hex.EncodeToString(sum),
+		KeySecretFingerprintSalt:          hex.EncodeToString(salt),
+		KeySecretFingerprintKdfIterations: strconv.Itoa(kdfIterations),
 	}, nil
 }
 
-func (i Instance) schemaToSecretsFingerprint(schema map[string]interface{}) (
+func (i Instance) schemaToSecretFingerprint(schema map[string]interface{}) (
 	sumBytes []byte,
 	saltBytes []byte,
 	kdfIterationsInt int,
 	err error,
 ) {
-	sum, ok := schema[KeySecretsFingerprintSum]
+	sum, ok := schema[KeySecretFingerprintSum]
 	if !ok {
 		return
 	}
-	salt, ok := schema[KeySecretsFingerprintSalt]
+	salt, ok := schema[KeySecretFingerprintSalt]
 	if !ok {
 		return
 	}
-	kdfInterations, ok := schema[KeySecretsFingerprintKdfIterations]
+	kdfInterations, ok := schema[KeySecretFingerprintKdfIterations]
 	if !ok {
 		return
 	}
@@ -122,12 +122,12 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 
 	//
 
-	if resource.HasChange(KeySecretsFingerprint) {
-		resource.SetNewComputed(KeySecretsFingerprint)
+	if resource.HasChange(KeySecretFingerprint) {
+		resource.SetNewComputed(KeySecretFingerprint)
 	} else {
-		fingerprint, ok := resource.Get(KeySecretsFingerprint).(map[string]interface{})
+		fingerprint, ok := resource.Get(KeySecretFingerprint).(map[string]interface{})
 		if ok {
-			sum, salt, kdfIterations, err := i.schemaToSecretsFingerprint(fingerprint)
+			sum, salt, kdfIterations, err := i.schemaToSecretFingerprint(fingerprint)
 			if err != nil {
 				return err
 			}
@@ -142,7 +142,7 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 			}
 
 			if !bytes.Equal(secretsData.Hash(salt, kdfIterations), sum) {
-				resource.SetNewComputed(KeySecretsFingerprint)
+				resource.SetNewComputed(KeySecretFingerprint)
 			}
 		}
 	}
@@ -239,7 +239,7 @@ func (i Instance) Create(ctx context.Context, resource *schema.ResourceData, met
 		return i.fail(err)
 	}
 
-	err = resource.Set(KeySecretsFingerprint, secretsFingerprintSchema)
+	err = resource.Set(KeySecretFingerprint, secretsFingerprintSchema)
 	if err != nil {
 		return i.fail(err)
 	}
