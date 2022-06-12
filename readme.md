@@ -90,6 +90,20 @@ terraform {
 
 Then run `terraform init`.
 
+## tips
+
+### how should I see what the fuck is going on?
+
+Sometimes Nix need to copy really big derivation.
+We need a way to print progress.
+
+At this moment Nix stderr is printed to terraform `INFO` logging level.
+
+So you need one of this:
+
+- `export TF_LOG=INFO` before running Terraform
+- `TF_LOG=INFO terraform apply` to apply logging level to single Terraform run
+
 ## release
 
 - `make docs` (regenerate docs)
