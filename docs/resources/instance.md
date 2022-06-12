@@ -32,6 +32,7 @@ NixOS instance
 ### Read-Only
 
 - `id` (String) The ID of this resource.
+- `secret_fingerprint` (Map of String) Secrets state fingerprint information which is used to maintain state
 
 <a id="nestedblock--derivations"></a>
 ### Nested Schema for `derivations`
