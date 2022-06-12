@@ -15,7 +15,7 @@ func main() {
 	flag.Parse()
 
 	plugin.Serve(&plugin.ServeOpts{
-		Debug: debugMode,
+		Debug:        debugMode,
 		ProviderAddr: "registry.terraform.io/corpix/nixos",
 		ProviderFunc: func() *schema.Provider { return provider.New() },
 	})

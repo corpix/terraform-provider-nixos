@@ -10,10 +10,11 @@ import (
 
 type (
 	Nix struct {
-		Mode        NixMode
-		Arguments   []string
-		Environment Environment
-		Ssh         *Ssh
+		Mode           NixMode
+		Arguments      []string
+		CommandOptions []CommandOption
+		Environment    Environment
+		Ssh            *Ssh
 	}
 	NixOption  func(*Nix)
 	NixMode    uint8
@@ -128,6 +129,7 @@ func (n *Nix) Command() (string, []string, []CommandOption) {
 	copy(arguments, n.Arguments)
 
 	options := []CommandOption{}
+	options = append(options, n.CommandOptions...)
 	if len(n.Environment) > 0 {
 		options = append(options, CommandOptionEnv(n.Environment))
 	}
@@ -330,6 +332,12 @@ func NixOptionMode(mode NixMode) NixOption {
 		case NixModeCompat:
 			NixOptionExperimentalFeatures(NixFeatureCommand)(n)
 		}
+	}
+}
+
+func NixOptionWithCommandOptions(options ...CommandOption) NixOption {
+	return func(n *Nix) {
+		n.CommandOptions = append(n.CommandOptions, options...)
 	}
 }
 

@@ -1,11 +1,14 @@
 package provider
 
 import (
+	"bufio"
+	"context"
 	"io"
 	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/pkg/errors"
 )
 
@@ -35,6 +38,19 @@ type (
 
 	Environment map[string][]string
 )
+
+func Readln(r *bufio.Reader) ([]byte, error) {
+	var (
+		isPrefix bool = true
+		err      error
+		line, ln []byte
+	)
+	for isPrefix && err == nil {
+		line, isPrefix, err = r.ReadLine()
+		ln = append(ln, line...)
+	}
+	return ln, err
+}
 
 func (c *StringCommand) Command() (string, []string, []CommandOption) {
 	return c.Cmd, c.Arguments, c.Options
@@ -98,6 +114,29 @@ func CommandOptionEnv(env Environment) CommandOption {
 	}
 }
 
+func CommandOptionTflogOutput(ctx context.Context) CommandOption {
+	return func(cmd *Cmd) {
+		er, ew := io.Pipe()
+		cmd.Stderr = ew
+
+		tflog.Info(ctx, "running command: "+cmd.String())
+		go func() {
+			rr := bufio.NewReader(er)
+			for {
+				line, err := Readln(rr)
+				if err != nil {
+					if err == io.EOF {
+						return
+					}
+					panic(err)
+				}
+
+				tflog.Info(ctx, string(line))
+			}
+		}()
+	}
+}
+
 //
 
 func CommandExecute(command string, arguments []string, options ...CommandOption) ([]byte, error) {
@@ -112,7 +151,6 @@ func CommandExecute(command string, arguments []string, options ...CommandOption
 	}
 
 	cmd.Cmd.Env = cmd.Env.Slice()
-	cmd.Cmd.Stderr = nil // NOTE: required to get process Stderr
 	for _, kv := range os.Environ() {
 		keyValue := strings.SplitN(kv, "=", 2)
 		_, exists := cmd.Env[keyValue[0]]

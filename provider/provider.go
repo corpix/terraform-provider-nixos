@@ -237,11 +237,11 @@ func (p *Provider) SecretsSet(resource ResourceBox) []map[string]interface{} {
 
 //
 
-func (p *Provider) NewNix(resource ResourceBox) *Nix {
-	var (
-		options  []NixOption
-		settings = p.NixSettings(resource)
-	)
+func (p *Provider) NewNix(ctx context.Context, resource ResourceBox) *Nix {
+	settings := p.NixSettings(resource)
+	options := []NixOption{
+		NixOptionWithCommandOptions(CommandOptionTflogOutput(ctx)),
+	}
 
 	// NOTE: should be first option in set
 	// because other options may rely on mode
@@ -381,7 +381,7 @@ func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
 //
 
 func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations, error) {
-	nix := p.NewNix(resource)
+	nix := p.NewNix(ctx, resource)
 	defer nix.Close()
 
 	nixSettings := p.NixSettings(resource)
@@ -461,7 +461,7 @@ func (p *Provider) CopySecrets(ctx context.Context, resource ResourceBox, secret
 }
 
 func (p *Provider) Push(ctx context.Context, resource ResourceBox, drvs Derivations) error {
-	nix := p.NewNix(resource)
+	nix := p.NewNix(ctx, resource)
 	defer nix.Close()
 
 	address, err := p.Address(resource.Get(KeyAddress))
@@ -500,7 +500,7 @@ func (p *Provider) Switch(ctx context.Context, resource ResourceBox, drvs Deriva
 	}
 
 	var (
-		nix         = p.NewNix(resource)
+		nix         = p.NewNix(ctx, resource)
 		nixSettings = p.NixSettings(resource)
 		profilePath = nixSettings[KeyNixProfile].(string)
 		outName     = nixSettings[KeyNixOutputName].(string)
