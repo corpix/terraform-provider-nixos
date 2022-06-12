@@ -355,7 +355,7 @@ func (p *Provider) NewSecrets(resource ResourceBox) (*Secrets, error) {
 	//
 
 	schemaSecretsSet := p.SecretsSet(resource)
-	definedSecrets := make([]*SecretDescription, len(schemaSecrets))
+	definedSecrets := make([]*SecretDescription, len(schemaSecretsSet))
 
 	n := 0
 	for _, schemaSecret := range schemaSecretsSet {
