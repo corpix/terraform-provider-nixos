@@ -68,13 +68,15 @@
     ];
 in stdenvNoCC.mkDerivation {
   name = repo;
+  buildInputs = [pkgs.findutils];
   unpackPhase = ":";
   buildPhase = ":";
   installPhase = ''
     mkdir $out
     ${concatMapStringsSep "\n"
-      (artifact: "cp -r ${artifact}/ $out")
-     artifacts}
+      (artifact: "cp --no-preserve=mode -r ${artifact}/* $out")
+      artifacts}
+    find $out -type f | xargs chmod 755
   '';
   fixupPhase = ":";
 }
