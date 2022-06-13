@@ -240,7 +240,7 @@ func (p *Provider) SecretsSet(resource ResourceBox) []map[string]interface{} {
 func (p *Provider) NewNix(ctx context.Context, resource ResourceBox) *Nix {
 	settings := p.NixSettings(resource)
 	options := []NixOption{
-		NixOptionWithCommandOptions(CommandOptionTflogOutput(ctx)),
+		NixOptionWithCommandOptions(CommandOptionTflogTee(ctx)),
 	}
 
 	// NOTE: should be first option in set

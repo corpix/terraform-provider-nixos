@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"os"
@@ -15,7 +16,10 @@ import (
 type (
 	Cmd struct {
 		*exec.Cmd
-		Env Environment
+		PreRunHooks []func(*Cmd)
+		Stdout      *bytes.Buffer
+		Stderr      *bytes.Buffer
+		Env         Environment
 	}
 	Command interface {
 		Command() (string, []string, []CommandOption)
@@ -50,6 +54,16 @@ func Readln(r *bufio.Reader) ([]byte, error) {
 		ln = append(ln, line...)
 	}
 	return ln, err
+}
+
+func (c *Cmd) Run() ([]byte, []byte, error) {
+	for _, hook := range c.PreRunHooks {
+		hook(c)
+	}
+
+	err := c.Cmd.Run()
+
+	return c.Stdout.Bytes(), c.Stderr.Bytes(), err
 }
 
 func (c *StringCommand) Command() (string, []string, []CommandOption) {
@@ -114,37 +128,36 @@ func CommandOptionEnv(env Environment) CommandOption {
 	}
 }
 
-func CommandOptionTflogOutput(ctx context.Context) CommandOption {
+func CommandOptionTflogTee(ctx context.Context) CommandOption {
+	logWriter := NewLogWriter(ctx)
 	return func(cmd *Cmd) {
-		er, ew := io.Pipe()
-		cmd.Stderr = ew
-
-		tflog.Info(ctx, "running command: "+cmd.String())
-		go func() {
-			rr := bufio.NewReader(er)
-			for {
-				line, err := Readln(rr)
-				if err != nil {
-					if err == io.EOF {
-						return
-					}
-					panic(err)
-				}
-
-				tflog.Info(ctx, string(line))
-			}
-		}()
+		cmd.Cmd.Stdout = io.MultiWriter(cmd.Stdout, logWriter)
+		cmd.Cmd.Stderr = io.MultiWriter(cmd.Stderr, logWriter)
+		cmd.PreRunHooks = append(
+			cmd.PreRunHooks,
+			func(cmd *Cmd) { tflog.Info(ctx, "running command: "+cmd.String()) },
+		)
 	}
 }
 
 //
 
 func CommandExecute(command string, arguments []string, options ...CommandOption) ([]byte, error) {
+	execCmd := exec.Command(command, arguments...)
+	stdout := bytes.NewBuffer(nil)
+	stderr := bytes.NewBuffer(nil)
+	execCmd.Stdout = stdout
+	execCmd.Stderr = stderr
+
+	//
+
 	cmd := &Cmd{
-		Cmd: exec.Command(command, arguments...),
+		Cmd: execCmd,
 		// NOTE: serves the requirement of multiple
 		// CommandOptionEnv concatenation
-		Env: NewEnvironment(),
+		Stdout: stdout,
+		Stderr: stderr,
+		Env:    NewEnvironment(),
 	}
 	for _, option := range options {
 		option(cmd)
@@ -159,21 +172,15 @@ func CommandExecute(command string, arguments []string, options ...CommandOption
 		}
 	}
 
-	output, err := cmd.Output()
+	stdoutBytes, stderrBytes, err := cmd.Run()
 	if err != nil {
-		var stderr string
-		exiterr, ok := err.(*exec.ExitError)
-		if ok {
-			stderr = string(exiterr.Stderr)
-		}
-
 		return nil, errors.Wrapf(
 			err, "subcommand %q exited with: %s",
-			command+" "+strings.Join(arguments, " "),
-			stderr,
+			cmd.String(),
+			string(stderrBytes),
 		)
 	}
-	return output, nil
+	return stdoutBytes, nil
 }
 
 func CommandExecuteUnmarshal(command string, arguments []string, unmarshaler Unmarshaler, result interface{}, options ...CommandOption) error {
