@@ -11,11 +11,12 @@
     trace
   ;
   inherit (pkgs)
-    symlinkJoin
+    stdenvNoCC
     buildGoModule
   ;
   inherit (pkgs.lib)
     concatStringsSep
+    concatMapStringsSep
     hasPrefix
     hasSuffix
   ;
@@ -65,7 +66,15 @@
       { GOOS = "darwin"; GOARCH = "amd64"; }
       { GOOS = "darwin"; GOARCH = "arm64"; }
     ];
-in symlinkJoin {
+in stdenvNoCC.mkDerivation {
   name = repo;
-  paths = artifacts;
+  unpackPhase = ":";
+  buildPhase = ":";
+  installPhase = ''
+    mkdir $out
+    ${concatMapStringsSep "\n"
+      (artifact: "cp -r ${artifact}/ $out")
+     artifacts}
+  '';
+  fixupPhase = ":";
 }
