@@ -8,11 +8,10 @@ result     = $(root)/result/libexec/terraform-providers
 namespace  = registry.terraform.io/corpix
 name       = nixos
 version   ?= $(shell git rev-list --tags --max-count=1 | xargs git describe --tags)
-target     = linux_amd64
 gpg_key   ?= 190E440CECF0D6C28E22C8F7755E11DE93BDB108
 
-provider_root   = $(result)/$(namespace)/$(name)/$(version)/$(target)
-provider_binary = $(provider_root)/terraform-provider-$(name)_$(version)
+provider_root   = $(result)/$(namespace)/$(name)/$(version)
+provider_binary = terraform-provider-$(name)_$(version)
 
 .PHONY: build
 build:
@@ -30,8 +29,16 @@ release: build
 	rm -rf release || true
 	mkdir -p release
 	cd release
-	cp $(provider_binary) terraform-provider-$(name)_v$(version)
-	zip terraform-provider-$(name)_$(version)_$(target).zip *
+	for platform in $$(ls $(provider_root));                 \
+	do                                                       \
+		cp -f                                                  \
+			$(provider_root)/$$platform/$(provider_binary)       \
+			terraform-provider-$(name)_v$(version);              \
+		zip                                                    \
+			terraform-provider-$(name)_$(version)_$$platform.zip \
+			terraform-provider-$(name)_v$(version);              \
+	done
+
 	echo '{ "version": 1, "metadata": { "protocol_versions": ["5.0"] } }' \
 		| jq                                                                \
 		> terraform-provider-$(name)_$(version)_manifest.json

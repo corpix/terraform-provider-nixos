@@ -1,22 +1,49 @@
-{ buildGoModule }: src: desc: buildGoModule {
-  pname = desc.name;
-  version = desc.version;
-  inherit src;
-
+{ name
+, src
+, provider-source-address
+, version
+, vendorSha256 ? null
+, buildGoModule
+, GOOS
+, GOARCH
+}: buildGoModule {
+  pname = "${name}-${GOOS}-${GOARCH}";
   subPackages = ["."];
-  vendorSha256 = desc.vendorSha256 or null;
+
+  inherit
+    src
+    version
+    vendorSha256
+  ;
+
+  CGO_ENABLED = "0";
+  ldflags = ["-extldflags=-static"];
+
+  postConfigure = ''
+    export GOOS=${GOOS}
+    export GOARCH=${GOARCH}
+  '';
 
   # Terraform allow checking the provider versions, but this breaks
   # if the versions are not provided via file paths.
-  postBuild = "mv $NIX_BUILD_TOP/go/bin/${desc.name}{,_v${desc.version}}";
-  postInstall = with desc; ''
-    dir=$out/libexec/terraform-providers/${provider-source-address}/${version}/''${GOOS}_''${GOARCH}
+  postBuild = ''
+    (
+      dir=$GOPATH/bin/${GOOS}_${GOARCH}
+      if [[ -n "$(shopt -s nullglob; echo $dir/*)" ]]
+      then
+        mv $dir/* $dir/..
+      fi
+      if [[ -d $dir ]]
+      then
+        rmdir $dir
+      fi
+    )
+    mv $GOPATH/bin/${name} $GOPATH/bin/${name}_v${version}
+  '';
+  postInstall = ''
+    dir=$out/libexec/terraform-providers/${provider-source-address}/${version}/${GOOS}_${GOARCH}
     mkdir -p "$dir"
     mv $out/bin/* "$dir/terraform-provider-$(basename ${provider-source-address})_${version}"
     rmdir $out/bin
   '';
-  passthru = desc;
-
-  CGO_ENABLED = "0";
-  ldflags = ["-extldflags=-static"];
 }
