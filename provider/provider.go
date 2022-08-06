@@ -384,6 +384,8 @@ func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations
 	nix := p.NewNix(ctx, resource)
 	defer nix.Close()
 
+	system := resource.Get(KeySystem).(string)
+
 	nixSettings := p.NixSettings(resource)
 	buildWrapperPath, _ := nixSettings[KeyNixBuildWrapper].(string)
 	buildWrapper, err := NewNixWrapperFile(buildWrapperPath)
@@ -404,8 +406,9 @@ func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations
 
 	command := nix.Build(
 		NixBuildCommandOptionFile(buildWrapper),
-		NixBuildCommandOptionArgStr("configuration", configurationAbs),
+		NixBuildCommandOptionArgStr("system", system),
 		NixBuildCommandOptionArgStr("settings", configurationSettings),
+		NixBuildCommandOptionArgStr("configuration", configurationAbs),
 		NixBuildCommandOptionJSON(),
 		NixBuildCommandOptionNoLink(),
 	)

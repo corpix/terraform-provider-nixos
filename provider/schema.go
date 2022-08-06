@@ -27,8 +27,9 @@ const (
 	KeyAddressPriority = "address_priority"
 	KeyNixosInstance   = "nixos_instance"
 	KeyAddress         = "address"
-	KeyConfiguration   = "configuration"
+	KeySystem          = "system"
 	KeySettings        = "settings"
+	KeyConfiguration   = "configuration"
 	KeyRetry           = "retry"
 	KeyRetryWait       = "retry_wait"
 
@@ -399,16 +400,22 @@ var (
 					Elem:        &schema.Schema{Type: schema.TypeString},
 					Required:    true,
 				},
-				KeyConfiguration: {
-					Description: "Path to Nix derivation",
+				KeySystem: {
+					Description: "Nix arch & target to build for (defaults to x86_64-linux)",
 					Type:        schema.TypeString,
-					Required:    true,
+					Optional:    true,
+					Default:     "x86_64-linux",
 				},
 				KeySettings: {
 					Description: "Optional settings (encoded with HCL function jsonencode()) to pass into Nix configuration derivation as attribute set (any configuration key could be specified)",
 					Type:        schema.TypeString,
 					Optional:    true,
 					Default:     "{}",
+				},
+				KeyConfiguration: {
+					Description: "Path to Nix derivation",
+					Type:        schema.TypeString,
+					Required:    true,
 				},
 
 				KeyNix:     ProviderSchemaNix,
