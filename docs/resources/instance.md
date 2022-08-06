@@ -28,6 +28,7 @@ NixOS instance
 - `secrets` (Block Set, Max: 1) Describes secrets settings (see [below for nested schema](#nestedblock--secrets))
 - `settings` (String) Optional settings (encoded with HCL function jsonencode()) to pass into Nix configuration derivation as attribute set (any configuration key could be specified)
 - `ssh` (Block Set, Max: 1) SSH protocol settings (see [below for nested schema](#nestedblock--ssh))
+- `system` (String) Nix arch & target to build for (defaults to x86_64-linux)
 
 ### Read-Only
 
