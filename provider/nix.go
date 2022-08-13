@@ -114,9 +114,7 @@ func (n *Nix) With(options ...NixOption) *Nix {
 		Environment: n.Environment.Copy(),
 		Ssh:         n.Ssh.With(),
 	}
-	for n, v := range n.Arguments {
-		nn.Arguments[n] = v
-	}
+	copy(nn.Arguments, n.Arguments)
 
 	for _, option := range options {
 		option(nn)

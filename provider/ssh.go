@@ -50,9 +50,8 @@ func (m *SshConfigMap) Len() int {
 
 func (m *SshConfigMap) Pairs() SshConfigPairs {
 	ps := make(SshConfigPairs, len(m.store))
-	for i, v := range m.store {
-		ps[i] = v
-	}
+	copy(ps, m.store)
+
 	return ps
 }
 
@@ -149,12 +148,8 @@ func (s *Ssh) With(options ...SshOption) *Ssh {
 		Arguments:  make([]string, len(s.Arguments)),
 		Finalizers: make([]func(), len(s.Finalizers)),
 	}
-	for n, v := range s.Arguments {
-		ss.Arguments[n] = v
-	}
-	for n, v := range s.Finalizers {
-		ss.Finalizers[n] = v
-	}
+	copy(ss.Arguments, s.Arguments)
+	copy(ss.Finalizers, s.Finalizers)
 
 	for _, option := range options {
 		option(ss)

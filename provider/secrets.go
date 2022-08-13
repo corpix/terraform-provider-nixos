@@ -200,7 +200,7 @@ func (s *Secrets) fromOctal(n int) int {
 	var (
 		res = 0
 		ctr = 0
-		rem = 0
+		rem int
 	)
 	for n != 0 {
 		rem = n % 10

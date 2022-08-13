@@ -123,7 +123,7 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 	//
 
 	if resource.HasChange(KeySecretFingerprint) {
-		resource.SetNewComputed(KeySecretFingerprint)
+		_ = resource.SetNewComputed(KeySecretFingerprint)
 	} else {
 		fingerprint, ok := resource.Get(KeySecretFingerprint).(map[string]interface{})
 		if ok {
@@ -142,7 +142,7 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 			}
 
 			if !bytes.Equal(secretsData.Hash(salt, kdfIterations), sum) {
-				resource.SetNewComputed(KeySecretFingerprint)
+				_ = resource.SetNewComputed(KeySecretFingerprint)
 			}
 		}
 	}
@@ -150,7 +150,7 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 	//
 
 	if resource.HasChange(KeyDerivations) {
-		resource.SetNewComputed(KeyDerivations)
+		_ = resource.SetNewComputed(KeyDerivations)
 	} else {
 		derivationsSchema, ok := resource.Get(KeyDerivations).([]interface{})
 		if ok {
@@ -164,7 +164,7 @@ func (i Instance) Diff(ctx context.Context, resource *schema.ResourceDiff, meta 
 			}
 
 			if oldDerivations.Hash() != newDerivations.Hash() {
-				resource.SetNewComputed(KeyDerivations)
+				_ = resource.SetNewComputed(KeyDerivations)
 			}
 		}
 	}
