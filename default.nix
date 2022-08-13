@@ -3,6 +3,12 @@
 , repo      ? "terraform-provider-${name}"
 , name      ? "nixos"
 , version   ? "0.0.1"
+, targets   ? [
+  { GOOS = "linux";  GOARCH = "amd64"; }
+  { GOOS = "linux";  GOARCH = "arm64"; }
+  { GOOS = "darwin"; GOARCH = "amd64"; }
+  { GOOS = "darwin"; GOARCH = "arm64"; }
+]
 }: let
   inherit (builtins)
     toString
@@ -59,13 +65,7 @@
       inherit buildGoModule;
     };
 
-  artifacts = map build
-    [
-      { GOOS = "linux";  GOARCH = "amd64"; }
-      { GOOS = "linux";  GOARCH = "arm64"; }
-      { GOOS = "darwin"; GOARCH = "amd64"; }
-      { GOOS = "darwin"; GOARCH = "arm64"; }
-    ];
+  artifacts = map build targets;
 in stdenvNoCC.mkDerivation {
   name = repo;
   buildInputs = [pkgs.findutils];

@@ -32,7 +32,12 @@ let
     p.null
     p.external
     p.vultr
-    (import ./default.nix { inherit pkgs; })
+    (import ./default.nix {
+      inherit pkgs;
+      targets = [
+        { GOOS = "linux";  GOARCH = "amd64"; }
+      ];
+    })
   ]);
 in stdenv.mkDerivation rec {
   name = "nix-shell";
