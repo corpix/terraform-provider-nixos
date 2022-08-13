@@ -336,7 +336,7 @@ var (
 					Optional:    true,
 				},
 				KeyNixUseSubstitutes: {
-					Description: "Wether or not should Nix use substitutes",
+					Description: "Whether or not should Nix use substitutes",
 					Type:        schema.TypeBool,
 					Optional:    true,
 					Default:     true,

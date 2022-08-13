@@ -39,7 +39,7 @@ Optional:
 - `output` (String) System derivation output name
 - `profile` (String) Path to the current system profile
 - `show_trace` (Boolean) Show Nix package manager trace on error
-- `use_substitutes` (Boolean) Wether or not should Nix use substitutes
+- `use_substitutes` (Boolean) Whether or not should Nix use substitutes
 
 
 <a id="nestedblock--secret"></a>
