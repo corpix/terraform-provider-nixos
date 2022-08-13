@@ -221,7 +221,6 @@ var (
 		Elem:        &schema.Schema{Type: schema.TypeString},
 		Computed:    true,
 	}
-	// FIXME: do we need defaults here?
 	ProviderSchemaSecret = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "Describes secret which should be transfered to host",
 		Type:        schema.TypeSet,

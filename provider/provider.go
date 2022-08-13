@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-	"github.com/imdario/mergo"
 	"github.com/pkg/errors"
 )
 
 //
 
-type Provider struct {
-	ResourceBox
+type (
+	Provider struct {
+		ResourceBox
 
-	addressFilter   []*CIDR
-	addressPriority map[*IPNet]int
-}
+		addressFilter   []*CIDR
+		addressPriority map[*IPNet]int
+	}
+)
 
 func (p *Provider) Address(rawAddrs interface{}) (IP, error) {
 	var ip IP
@@ -94,36 +96,36 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 	var (
 		value interface{}
 		ok    bool
-		fold  = func(key string, value interface{}) interface{} {
-			switch v := value.(type) {
-			case nil:
-				value = r.Get(key)
-			case *schema.Set:
-				for _, vv := range v.List() {
-					switch vvv := vv.(type) {
-					case map[string]interface{}:
-						value = vvv[key]
-						if ok {
-							break
-						}
-					default:
-						goto fail
-					}
-				}
-			default:
-				goto fail
-			}
-			return value
-		fail:
-			panic(fmt.Sprintf(
-				"got unhandled type %T at %q while walking path %q on resource %#v",
-				value, key, strings.Join(path, "."), r,
-			))
-		}
 	)
 
-	value = fold(path[0], nil)
-	for _, key := range path[1:] {
+	fold := func(key string, value interface{}) interface{} {
+		switch valueTyped := value.(type) {
+		case nil:
+			value = r.Get(key)
+		case *schema.Set:
+			for _, item := range valueTyped.List() {
+				switch itemTyped := item.(type) {
+				case map[string]interface{}:
+					value = itemTyped[key]
+					if ok {
+						break
+					}
+				default:
+					goto fail
+				}
+			}
+		default:
+			goto fail
+		}
+		return value
+	fail:
+		panic(fmt.Sprintf(
+			"got unhandled type %T at %q while walking path %q on resource %#v",
+			value, key, strings.Join(path, "."), r,
+		))
+	}
+
+	for _, key := range path {
 		value = fold(key, value)
 	}
 
@@ -135,6 +137,49 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 	}
 
 	return value
+}
+
+func (p *Provider) merge(resources ...map[string]interface{}) map[string]interface{} {
+	r := map[string]interface{}{}
+
+	// FIXME: maybe we could improve this?
+	// Every time you try to merge two schema parts
+	// you need to figure out:
+	//   - what fields have default values
+	//   - what field have been provided by user
+	// But this garbage SDK provides no way to know about this,
+	// making default values are indistinguishable from legitimate values
+	// providen by the user.
+	// For example, this is why when you override some fields of bastion on
+	// per-instance basis you would get some fields nulled.
+	for _, resource := range resources {
+		for key, value := range resource {
+			rvalue := reflect.ValueOf(value)
+
+			switch rvalue.Kind() {
+			case
+				reflect.String,
+				reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+				reflect.Float32, reflect.Float64:
+				r[key] = value
+			case reflect.Map:
+				current, ok := r[key]
+				if ok {
+					r[key] = p.merge(
+						current.(map[string]interface{}),
+						value.(map[string]interface{}),
+					)
+				} else {
+					r[key] = value
+				}
+			default:
+				r[key] = value
+			}
+		}
+	}
+
+	return r
 }
 
 // retrieve hashmap from set with maxItems == 1
@@ -152,18 +197,7 @@ func (p *Provider) settings(resource ResourceBox, path ...string) map[string]int
 	resourceLevelSettings, _ := p.resolveSettings(resource, path...).([]interface{})
 	if len(resourceLevelSettings) > 0 {
 		resourceLevel := resourceLevelSettings[0].(map[string]interface{})
-		providerLevelCopy := make(map[string]interface{}, len(providerLevel))
-
-		err := mergo.MergeWithOverwrite(&providerLevelCopy, providerLevel)
-		if err != nil {
-			panic(err)
-		}
-		err = mergo.MergeWithOverwrite(&providerLevelCopy, resourceLevel)
-		if err != nil {
-			panic(err)
-		}
-
-		providerLevel = providerLevelCopy
+		providerLevel = p.merge(providerLevel, resourceLevel)
 	}
 
 	return providerLevel
