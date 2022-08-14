@@ -38,7 +38,7 @@ release: build
 			terraform-provider-$(name)_$(version)_$$platform.zip \
 			terraform-provider-$(name)_v$(version);              \
 	done
-	rm terraform-provider-$(name)_v$(version)
+	rm -f terraform-provider-$(name)_v$(version)
 
 	echo '{ "version": 1, "metadata": { "protocol_versions": ["5.0"] } }' \
 		| jq                                                                \
