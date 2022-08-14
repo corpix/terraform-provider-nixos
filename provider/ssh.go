@@ -44,6 +44,18 @@ func (m *SshConfigMap) Get(key string) (string, bool) {
 	return m.store[i].Value, true
 }
 
+func (m *SshConfigMap) Extend(em *SshConfigMap) {
+	for _, pair := range em.Pairs() {
+		m.Set(pair.Key, pair.Value)
+	}
+}
+
+func (m *SshConfigMap) Copy() *SshConfigMap {
+	nm := NewSshConfigMap()
+	nm.Extend(m)
+	return nm
+}
+
 func (m *SshConfigMap) Len() int {
 	return len(m.store)
 }
@@ -90,13 +102,13 @@ func SshOptionConfigFile(fd File) SshOption {
 	return SshOptionConfig(fd.Name())
 }
 
-func SshOptionConfigMap(ps SshConfigPairs) SshOption {
+func SshOptionConfigMap(m *SshConfigMap) SshOption {
 	return func(s *Ssh) {
 		fd, err := CreateTemp("ssh_config.*")
 		if err != nil {
 			panic(err)
 		}
-		_, err = fd.Write([]byte(SshSerializeConfig(ps)))
+		_, err = fd.Write([]byte(SshSerializeConfig(m.Pairs())))
 		if err != nil {
 			panic(err)
 		}

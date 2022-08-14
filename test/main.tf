@@ -22,12 +22,6 @@ provider "nixos" {
     bastion {
       host = "127.0.0.1"
       port = 777
-      config = {
-        userKnownHostsFile = "/dev/null"
-        strictHostKeyChecking = "no"
-        pubKeyAuthentication = "no"
-        passwordAuthentication = "yes"
-      }
     }
   }
 }
@@ -41,15 +35,15 @@ resource "nixos_instance" "test" {
   }
   ssh {
     port = 2222
+    config = {
+      userKnownHostsFile = "/dev/null"
+      strictHostKeyChecking = "no"
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
+    }
     bastion {
       host = "127.0.0.1"
       port = 2222
-      config = {
-        userKnownHostsFile = "/dev/null"
-        strictHostKeyChecking = "no"
-        pubKeyAuthentication = "no"
-        passwordAuthentication = "yes"
-      }
     }
   }
 

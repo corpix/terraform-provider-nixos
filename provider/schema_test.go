@@ -16,7 +16,7 @@ var providerFactories = map[string]func() (*schema.Provider, error){
 	},
 }
 
-const nixosMinimalConfig = `
+const nixosConfig1 = `
 provider "nixos" {
   nix {
     activation_action = "" # skip activation because we are running in docker
@@ -32,12 +32,38 @@ provider "nixos" {
   }
 }
 
-resource "nixos_instance" "test" {
+resource "nixos_instance" "test1" {
   address = ["127.0.0.1", "::1"]
   configuration = "../test/test.nix"
 }
 `
-const nixosSampleConfig = `
+const nixosConfig2 = `
+provider "nixos" {
+  nix {
+    activation_action = "" # skip activation because we are running in docker
+  }
+}
+
+resource "nixos_instance" "test2" {
+  address = ["127.0.0.1", "::1"]
+  configuration = "../test/test.nix"
+
+  ssh {
+    port = 2222
+    config = {
+      userKnownHostsFile = "/dev/null"
+      strictHostKeyChecking = "no"
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
+    }
+    bastion {
+      host = "127.0.0.1"
+      port = 2222
+    }
+  }
+}
+`
+const nixosConfig3 = `
 provider "nixos" {
   retry = 0
   nix {
@@ -45,7 +71,7 @@ provider "nixos" {
     activation_action = "" # skip activation because we are running in docker
   }
   ssh {
-    port = 666
+    port = 2222
     config = {
       userKnownHostsFile = "/dev/null"
       strictHostKeyChecking = "no"
@@ -76,12 +102,9 @@ provider "nixos" {
   }
 }
 
-resource "nixos_instance" "test" {
+resource "nixos_instance" "test3" {
   address = ["127.0.0.1", "::1"]
   configuration = "../test/test.nix"
-  ssh {
-    port = 2222
-  }
 }
 `
 
@@ -113,21 +136,33 @@ func TestResourceNixosInstance(t *testing.T) {
 			ProviderFactories: providerFactories,
 			Steps: []resource.TestStep{
 				{
-					Config: nixosMinimalConfig,
+					Config: nixosConfig1,
 					Check: resource.ComposeTestCheckFunc(
-						CheckEqual(t, "nixos_instance.test", "address.0", "127.0.0.1"),
-						CheckEqual(t, "nixos_instance.test", "address.1", "::1"),
-						CheckEqual(t, "nixos_instance.test", "address.2", ""),
-						CheckEqual(t, "nixos_instance.test", "configuration", "../test/test.nix"),
+						CheckEqual(t, "nixos_instance.test1", "address.0", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test1", "address.1", "::1"),
+						CheckEqual(t, "nixos_instance.test1", "address.2", ""),
+						CheckEqual(t, "nixos_instance.test1", "configuration", "../test/test.nix"),
 					),
 				},
 				{
-					Config: nixosSampleConfig,
+					Config: nixosConfig2,
 					Check: resource.ComposeTestCheckFunc(
-						CheckEqual(t, "nixos_instance.test", "address.0", "127.0.0.1"),
-						CheckEqual(t, "nixos_instance.test", "address.1", "::1"),
-						CheckEqual(t, "nixos_instance.test", "address.2", ""),
-						CheckEqual(t, "nixos_instance.test", "configuration", "../test/test.nix"),
+						CheckEqual(t, "nixos_instance.test2", "address.0", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test2", "address.1", "::1"),
+						CheckEqual(t, "nixos_instance.test2", "address.2", ""),
+						CheckEqual(t, "nixos_instance.test2", "configuration", "../test/test.nix"),
+						CheckEqual(t, "nixos_instance.test2", "ssh.0.port", "2222"),
+						CheckEqual(t, "nixos_instance.test2", "ssh.0.bastion.0.host", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test2", "ssh.0.bastion.0.port", "2222"),
+					),
+				},
+				{
+					Config: nixosConfig3,
+					Check: resource.ComposeTestCheckFunc(
+						CheckEqual(t, "nixos_instance.test3", "address.0", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test3", "address.1", "::1"),
+						CheckEqual(t, "nixos_instance.test3", "address.2", ""),
+						CheckEqual(t, "nixos_instance.test3", "configuration", "../test/test.nix"),
 					),
 				},
 			},

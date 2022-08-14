@@ -127,6 +127,9 @@ func (p *Provider) resolveSettings(r schemaResource, path ...string) interface{}
 
 	for _, key := range path {
 		value = fold(key, value)
+		if value == nil {
+			return nil
+		}
 	}
 
 	//
@@ -148,21 +151,11 @@ func (p *Provider) merge(resources ...map[string]interface{}) map[string]interfa
 	//   - what fields have default values
 	//   - what field have been provided by user
 	// But this garbage SDK provides no way to know about this,
-	// making default values are indistinguishable from legitimate values
-	// providen by the user.
-	// For example, this is why when you override some fields of bastion on
-	// per-instance basis you would get some fields nulled.
 	for _, resource := range resources {
 		for key, value := range resource {
 			rvalue := reflect.ValueOf(value)
 
 			switch rvalue.Kind() {
-			case
-				reflect.String,
-				reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-				reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-				reflect.Float32, reflect.Float64:
-				r[key] = value
 			case reflect.Map:
 				current, ok := r[key]
 				if ok {
@@ -186,14 +179,12 @@ func (p *Provider) merge(resources ...map[string]interface{}) map[string]interfa
 func (p *Provider) settings(resource ResourceBox, path ...string) map[string]interface{} {
 	providerLevel := map[string]interface{}{}
 	settings, _ := p.resolveSettings(p, path...).([]interface{})
-	if len(settings) == 0 {
-		return providerLevel
+	if len(settings) != 0 {
+		providerLevel = settings[0].(map[string]interface{})
 	}
-	providerLevel = settings[0].(map[string]interface{})
 	if resource == nil {
 		return providerLevel
 	}
-
 	resourceLevelSettings, _ := p.resolveSettings(resource, path...).([]interface{})
 	if len(resourceLevelSettings) > 0 {
 		resourceLevel := resourceLevelSettings[0].(map[string]interface{})
@@ -310,35 +301,32 @@ func (p *Provider) NewSsh(resource ResourceBox) *Ssh {
 		bastionSettings = p.SshBastionSettings(resource)
 	)
 
-	if len(bastionSettings) > 0 {
-		bastionHost, _ := bastionSettings[KeySshHost].(string)
-		if bastionHost != "" {
-			bastionConfigMap := p.SshConfigMap(bastionSettings)
-			if bastionConfigMap.Len() > 0 {
-				bastionConfigOption := SshOptionConfigMap(bastionConfigMap.Pairs())
-				bastion := NewSsh(
-					bastionConfigOption,
-					SshOptionNonInteractive(),
-					SshOptionIORedirection("%h", "%p"),
-					SshOptionHost(bastionHost),
-				)
-				command, arguments, _ := bastion.Command()
-				configMap.Set(
-					SshConfigKeyProxyCommand,
-					strings.Join(append([]string{command}, arguments...), " "),
-				)
-				options = append(
-					options,
-					bastionConfigOption,
-				)
-			}
+	bastionHost, _ := bastionSettings[KeySshHost].(string)
+	if bastionHost != "" {
+		bastionConfigMap := p.SshConfigMap(bastionSettings)
+		if bastionConfigMap.Len() > 0 {
+			// NOTE: base ssh configuration (ssh {}) extended with bastion ssh configuration (ssh { bastion {} })
+			extendedBastionConfigMap := configMap.Copy()
+			extendedBastionConfigMap.Extend(bastionConfigMap)
+
+			bastion := NewSsh(
+				SshOptionConfigMap(extendedBastionConfigMap),
+				SshOptionNonInteractive(),
+				SshOptionIORedirection("%h", "%p"),
+				SshOptionHost(bastionHost),
+			)
+			command, arguments, _ := bastion.Command()
+			configMap.Set(
+				SshConfigKeyProxyCommand,
+				strings.Join(append([]string{command}, arguments...), " "),
+			)
 		}
 	}
 
 	if configMap.Len() > 0 {
 		options = append(
 			options,
-			SshOptionConfigMap(configMap.Pairs()),
+			SshOptionConfigMap(configMap),
 		)
 	}
 
