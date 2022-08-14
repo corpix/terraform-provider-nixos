@@ -433,6 +433,7 @@ func (p *Provider) Build(ctx context.Context, resource ResourceBox) (Derivations
 		NixBuildCommandOptionArgStr("configuration", configurationAbs),
 		NixBuildCommandOptionJSON(),
 		NixBuildCommandOptionNoLink(),
+		NixBuildCommandOptionMemoize(configurationAbs),
 	)
 	defer command.Close()
 

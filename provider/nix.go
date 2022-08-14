@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type (
@@ -25,6 +26,8 @@ type (
 	NixBuildCommand struct {
 		Nix       *Nix
 		Arguments []string
+		Memoize   bool
+		MemoKey   string
 		Unmarshaler
 	}
 	NixBuildCommandOption func(*NixBuildCommand)
@@ -63,6 +66,13 @@ type (
 		Outputs map[string]string `json:"outputs" mapstructure:"outputs"`
 	}
 	Derivations []Derivation
+
+	//
+
+	Memo struct {
+		sync.RWMutex
+		Store map[string][]byte
+	}
 )
 
 const (
@@ -95,6 +105,12 @@ const (
 	NixActivationActionBoot        NixActivationAction = "boot"
 	NixActivationActionTest        NixActivationAction = "test"
 	NixActivationActionDryActivate NixActivationAction = "dry-activate"
+)
+
+var (
+	nixBuildCommandMemo = &Memo{
+		Store: map[string][]byte{},
+	}
 )
 
 func (n NixCopyProtocol) Path(path string) string {
@@ -179,14 +195,52 @@ func NixBuildCommandOptionJSON() NixBuildCommandOption {
 	}
 }
 
+func NixBuildCommandOptionMemoize(key string) NixBuildCommandOption {
+	return func(n *NixBuildCommand) {
+		n.Memoize = true
+		n.MemoKey = key
+	}
+}
+
 func (n *NixBuildCommand) Command() (string, []string, []CommandOption) {
 	command, arguments, options := n.Nix.Command()
 	return command, append(append(arguments, "build"), n.Arguments...), options
 }
 
 func (n *NixBuildCommand) Execute(result interface{}) error {
+	var (
+		r   []byte
+		ok  bool
+		err error
+	)
 	command, arguments, options := n.Command()
-	return CommandExecuteUnmarshal(command, arguments, n.Unmarshaler, result, options...)
+	if n.Memoize {
+		r, ok = nixBuildCommandMemo.Get(n.MemoKey)
+		if ok {
+			goto unmarshal
+		}
+	}
+
+	r, err = CommandExecute(command, arguments, options...)
+	if err != nil {
+		return err
+	}
+	if n.Memoize {
+		nixBuildCommandMemo.Set(n.MemoKey, r)
+	}
+
+unmarshal:
+	if result != nil {
+		unmarshaler := n.Unmarshaler
+		if unmarshaler == nil {
+			unmarshaler = NewUnmarshalerPassthrough()
+		}
+		err := unmarshaler.Unmarshal(r, &result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (n *NixBuildCommand) Close() error { return nil }
@@ -421,4 +475,19 @@ func (d Derivation) Hash() string {
 		panic(err)
 	}
 	return hex.EncodeToString(hash.Sum(nil))
+}
+
+//
+
+func (m *Memo) Get(key string) ([]byte, bool) {
+	m.RLock()
+	defer m.RUnlock()
+	v, ok := m.Store[key]
+	return v, ok
+}
+
+func (m *Memo) Set(key string, value []byte) {
+	m.Lock()
+	defer m.Unlock()
+	m.Store[key] = value
 }
