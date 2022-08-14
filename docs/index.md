@@ -100,7 +100,6 @@ Optional:
 
 - `bastion` (Block Set, Max: 1) SSH configuration for bastion server (see [below for nested schema](#nestedblock--ssh--bastion))
 - `config` (Map of String) SSH configuration map
-- `host` (String) SSH remote hostname
 - `port` (Number) SSH remote port
 - `user` (String) SSH remote user name
 

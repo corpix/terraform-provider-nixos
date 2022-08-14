@@ -93,11 +93,6 @@ const (
 
 var (
 	ProviderSchemaSshMap = map[string]*schema.Schema{
-		KeySshHost: {
-			Description: "SSH remote hostname",
-			Type:        schema.TypeString,
-			Optional:    true,
-		},
 		KeySshUser: {
 			Description: "SSH remote user name",
 			Type:        schema.TypeString,
@@ -117,6 +112,16 @@ var (
 			DefaultFunc: DefaultSshConfig,
 		},
 	}
+	ProviderSchemaBastionMap = SchemaMapExtend(
+		ProviderSchemaSshMap,
+		map[string]*schema.Schema{
+			KeySshHost: {
+				Description: "SSH remote hostname",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+		},
+	)
 	ProviderSchemaSsh = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "SSH protocol settings",
 		Type:        schema.TypeSet,
@@ -130,7 +135,7 @@ var (
 						Type:        schema.TypeSet,
 						MaxItems:    1,
 						Elem: &schema.Resource{
-							Schema: ProviderSchemaSshMap,
+							Schema: ProviderSchemaBastionMap,
 						},
 						Optional: true,
 					},
