@@ -62,7 +62,7 @@ test:
 
 .PHONY: run/sshd
 run/sshd:
-	sudo docker run --rm -it --net=host nixos/nix:latest                                                    \
+	sudo docker run --rm -p 127.0.0.1:2222:2222/tcp -it nixos/nix:latest                                    \
 		nix-shell -p openssh                                                                                  \
 			--run '{ grep sshd: /etc/passwd > /dev/null || echo "sshd:x:666:666::/:/bin/bash" >> /etc/passwd; } \
 				&& sed -i "s/^root:!/root:/g" /etc/shadow                                                         \
@@ -72,7 +72,7 @@ run/sshd:
 				&& cp -Pf /root/.nix-profile/bin/* /usr/bin                                                       \
 				&& cd /etc/ssh                                                                                    \
 				&& ssh-keygen -A                                                                                  \
-				&& echo -e "PermitEmptyPasswords yes\nPermitRootLogin yes\nUsePAM no\nLogLevel verbose"           \
+				&& echo -e "PermitEmptyPasswords yes\nPermitRootLogin yes\nUsePAM no\nLogLevel DEBUG1"            \
 				>  /etc/ssh/sshd_config                                                                           \
 				&& `which sshd` -e -D -p 2222                                                                     \
 				&  pid=$$!                                                                                        \
