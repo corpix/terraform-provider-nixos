@@ -56,10 +56,10 @@ resource "nixos_instance" "test2" {
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
     }
-    bastion {
-      host = "127.0.0.1"
-      port = 2222
-    }
+  }
+  bastion {
+    host = "127.0.0.1"
+    port = 2222
   }
 }
 `
@@ -78,15 +78,15 @@ provider "nixos" {
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
     }
-    bastion {
-      host = "127.0.0.1"
-      port = 2222
-      config = {
-        userKnownHostsFile = "/dev/null"
-        strictHostKeyChecking = "no"
-        pubKeyAuthentication = "no"
-        passwordAuthentication = "yes"
-      }
+  }
+  bastion {
+    host = "127.0.0.1"
+    port = 2222
+    config = {
+      userKnownHostsFile = "/dev/null"
+      strictHostKeyChecking = "no"
+      pubKeyAuthentication = "no"
+      passwordAuthentication = "yes"
     }
   }
   secrets {
@@ -152,8 +152,8 @@ func TestResourceNixosInstance(t *testing.T) {
 						CheckEqual(t, "nixos_instance.test2", "address.2", ""),
 						CheckEqual(t, "nixos_instance.test2", "configuration", "../test/test.nix"),
 						CheckEqual(t, "nixos_instance.test2", "ssh.0.port", "2222"),
-						CheckEqual(t, "nixos_instance.test2", "ssh.0.bastion.0.host", "127.0.0.1"),
-						CheckEqual(t, "nixos_instance.test2", "ssh.0.bastion.0.port", "2222"),
+						CheckEqual(t, "nixos_instance.test2", "bastion.0.host", "127.0.0.1"),
+						CheckEqual(t, "nixos_instance.test2", "bastion.0.port", "2222"),
 					),
 				},
 				{

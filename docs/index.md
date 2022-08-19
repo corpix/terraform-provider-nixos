@@ -19,12 +19,24 @@ description: |-
 
 - `address_filter` (List of String) List of network cidr's to filter addresses used to connect to nixos_instance resources
 - `address_priority` (Map of Number) Map of network cidr's with associated weight which will affect address ordering for nixos_isntance resource
+- `bastion` (Block Set, Max: 1) SSH configuration for bastion server (see [below for nested schema](#nestedblock--bastion))
 - `nix` (Block Set, Max: 1) Nix package manager configuration options (see [below for nested schema](#nestedblock--nix))
 - `retry` (Number) Amount of retries for retryable operations
 - `retry_wait` (Number) Amount of seconds to wait between retries
 - `secret` (Block Set) Describes secret which should be transfered to host (see [below for nested schema](#nestedblock--secret))
 - `secrets` (Block Set, Max: 1) Describes secrets settings (see [below for nested schema](#nestedblock--secrets))
 - `ssh` (Block Set, Max: 1) SSH protocol settings (see [below for nested schema](#nestedblock--ssh))
+
+<a id="nestedblock--bastion"></a>
+### Nested Schema for `bastion`
+
+Optional:
+
+- `config` (Map of String) SSH configuration map
+- `host` (String) SSH bastion remote hostname
+- `port` (Number) SSH remote port
+- `user` (String) SSH remote user name
+
 
 <a id="nestedblock--nix"></a>
 ### Nested Schema for `nix`
@@ -98,17 +110,6 @@ Optional:
 
 Optional:
 
-- `bastion` (Block Set, Max: 1) SSH configuration for bastion server (see [below for nested schema](#nestedblock--ssh--bastion))
 - `config` (Map of String) SSH configuration map
-- `port` (Number) SSH remote port
-- `user` (String) SSH remote user name
-
-<a id="nestedblock--ssh--bastion"></a>
-### Nested Schema for `ssh.bastion`
-
-Optional:
-
-- `config` (Map of String) SSH configuration map
-- `host` (String) SSH remote hostname
 - `port` (Number) SSH remote port
 - `user` (String) SSH remote user name

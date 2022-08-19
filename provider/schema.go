@@ -50,12 +50,13 @@ const (
 
 	//
 
-	KeySsh        = "ssh"
-	KeySshHost    = "host"
-	KeySshUser    = "user"
-	KeySshPort    = "port"
-	KeySshConfig  = "config"
-	KeySshBastion = "bastion"
+	KeySsh       = "ssh"
+	KeySshHost   = "host"
+	KeySshUser   = "user"
+	KeySshPort   = "port"
+	KeySshConfig = "config"
+
+	KeyBastion = "bastion"
 
 	//
 
@@ -112,35 +113,32 @@ var (
 			DefaultFunc: DefaultSshConfig,
 		},
 	}
-	ProviderSchemaBastionMap = SchemaMapExtend(
-		ProviderSchemaSshMap,
-		map[string]*schema.Schema{
-			KeySshHost: {
-				Description: "SSH remote hostname",
-				Type:        schema.TypeString,
-				Optional:    true,
-			},
-		},
-	)
 	ProviderSchemaSsh = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
 		Description: "SSH protocol settings",
 		Type:        schema.TypeSet,
 		MaxItems:    1,
 		Elem: &schema.Resource{
-			Schema: SchemaMapExtend(
-				ProviderSchemaSshMap,
-				map[string]*schema.Schema{
-					KeySshBastion: {
-						Description: "SSH configuration for bastion server",
-						Type:        schema.TypeSet,
-						MaxItems:    1,
-						Elem: &schema.Resource{
-							Schema: ProviderSchemaBastionMap,
-						},
-						Optional: true,
-					},
-				},
-			),
+			Schema: ProviderSchemaSshMap,
+		},
+		Optional: true,
+	})
+
+	ProviderSchemaBastionMap = SchemaMapExtend(
+		ProviderSchemaSshMap,
+		map[string]*schema.Schema{
+			KeySshHost: {
+				Description: "SSH bastion remote hostname",
+				Type:        schema.TypeString,
+				Optional:    true,
+			},
+		},
+	)
+	ProviderSchemaBastion = SchemaWithDefaultFuncCtr(DefaultMapFromSchema, &schema.Schema{
+		Description: "SSH configuration for bastion server",
+		Type:        schema.TypeSet,
+		MaxItems:    1,
+		Elem: &schema.Resource{
+			Schema: ProviderSchemaBastionMap,
 		},
 		Optional: true,
 	})
@@ -381,6 +379,7 @@ var (
 
 		KeyNix:     ProviderSchemaNix,
 		KeySsh:     ProviderSchemaSsh,
+		KeyBastion: ProviderSchemaBastion,
 		KeySecrets: ProviderSchemaSecrets,
 		KeySecret:  ProviderSchemaSecret,
 	}
@@ -424,6 +423,7 @@ var (
 
 				KeyNix:     ProviderSchemaNix,
 				KeySsh:     ProviderSchemaSsh,
+				KeyBastion: ProviderSchemaBastion,
 				KeySecrets: ProviderSchemaSecrets,
 				KeySecret:  ProviderSchemaSecret,
 

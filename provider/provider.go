@@ -229,8 +229,8 @@ func (p *Provider) SshSettings(resource ResourceBox) map[string]interface{} {
 	return p.settings(resource, KeySsh)
 }
 
-func (p *Provider) SshBastionSettings(resource ResourceBox) map[string]interface{} {
-	return p.settings(resource, KeySsh, KeySshBastion)
+func (p *Provider) BastionSettings(resource ResourceBox) map[string]interface{} {
+	return p.settings(resource, KeyBastion)
 }
 
 func (p *Provider) SshConfigMap(settings map[string]interface{}) *SshConfigMap {
@@ -298,7 +298,7 @@ func (p *Provider) NewSsh(resource ResourceBox) *Ssh {
 
 		settings        = p.SshSettings(resource)
 		configMap       = p.SshConfigMap(settings)
-		bastionSettings = p.SshBastionSettings(resource)
+		bastionSettings = p.BastionSettings(resource)
 	)
 
 	bastionHost, _ := bastionSettings[KeySshHost].(string)

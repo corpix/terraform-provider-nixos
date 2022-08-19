@@ -2,6 +2,7 @@
 .ONESHELL:
 
 export TF_LOG ?= ERROR
+export SSH_AUTH_SOCK =
 
 root       = $(dir $(abspath $(firstword $(MAKEFILE_LIST))))
 result     = $(root)/result/libexec/terraform-providers

@@ -22,6 +22,7 @@ NixOS instance
 
 ### Optional
 
+- `bastion` (Block Set, Max: 1) SSH configuration for bastion server (see [below for nested schema](#nestedblock--bastion))
 - `derivations` (Block List) List of derivations which is built during apply (see [below for nested schema](#nestedblock--derivations))
 - `nix` (Block Set, Max: 1) Nix package manager configuration options (see [below for nested schema](#nestedblock--nix))
 - `secret` (Block Set) Describes secret which should be transfered to host (see [below for nested schema](#nestedblock--secret))
@@ -34,6 +35,17 @@ NixOS instance
 
 - `id` (String) The ID of this resource.
 - `secret_fingerprint` (Map of String) Secrets state fingerprint information which is used to maintain state
+
+<a id="nestedblock--bastion"></a>
+### Nested Schema for `bastion`
+
+Optional:
+
+- `config` (Map of String) SSH configuration map
+- `host` (String) SSH bastion remote hostname
+- `port` (Number) SSH remote port
+- `user` (String) SSH remote user name
+
 
 <a id="nestedblock--derivations"></a>
 ### Nested Schema for `derivations`
@@ -116,18 +128,7 @@ Optional:
 
 Optional:
 
-- `bastion` (Block Set, Max: 1) SSH configuration for bastion server (see [below for nested schema](#nestedblock--ssh--bastion))
 - `config` (Map of String) SSH configuration map
-- `port` (Number) SSH remote port
-- `user` (String) SSH remote user name
-
-<a id="nestedblock--ssh--bastion"></a>
-### Nested Schema for `ssh.bastion`
-
-Optional:
-
-- `config` (Map of String) SSH configuration map
-- `host` (String) SSH remote hostname
 - `port` (Number) SSH remote port
 - `user` (String) SSH remote user name
 

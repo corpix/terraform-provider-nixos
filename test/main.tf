@@ -19,10 +19,10 @@ provider "nixos" {
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
     }
-    bastion {
-      host = "127.0.0.1"
-      port = 777
-    }
+  }
+  bastion {
+    host = "127.0.0.1"
+    port = 777
   }
 }
 
@@ -41,10 +41,10 @@ resource "nixos_instance" "test" {
       pubKeyAuthentication = "no"
       passwordAuthentication = "yes"
     }
-    bastion {
-      host = "127.0.0.1"
-      port = 2222
-    }
+  }
+  bastion {
+    host = "127.0.0.1"
+    port = 2222
   }
 
   secret {
