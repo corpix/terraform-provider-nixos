@@ -17,7 +17,7 @@ terraform {
   required_providers {
     nixos = {
       source = "corpix/nixos"
-      version = "0.0.13"
+      version = "0.0.14"
     }
   }
 }
@@ -60,9 +60,9 @@ in terraform.withPlugins (p: [
   (mkProvider rec {
     owner = "corpix";
     repo = "terraform-provider-nixos";
-    rev = "0.0.13";
+    rev = "0.0.14";
     version = rev;
-    sha256 = "sha256-rBb8BhFa1AOR4BrAXSVVwaGUe9MPE+8EvKPlWhtPSMg=";
+    sha256 = "sha256-4QATev3WtwpEwc4/+JjOBfvUVzUre15VZT7tXLkSrXM=";
     vendorSha256 = null;
     provider-source-address = "registry.terraform.io/corpix/nixos";
   })
@@ -82,7 +82,7 @@ terraform {
   required_providers {
     nixos = {
       source = "corpix/nixos"
-      version = "0.0.13"
+      version = "0.0.14"
     }
   }
 }
