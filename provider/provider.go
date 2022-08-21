@@ -304,23 +304,21 @@ func (p *Provider) NewSsh(resource ResourceBox) *Ssh {
 	bastionHost, _ := bastionSettings[KeySshHost].(string)
 	if bastionHost != "" {
 		bastionConfigMap := p.SshConfigMap(bastionSettings)
-		if bastionConfigMap.Len() > 0 {
-			// NOTE: base ssh configuration (ssh {}) extended with bastion ssh configuration (ssh { bastion {} })
-			extendedBastionConfigMap := configMap.Copy()
-			extendedBastionConfigMap.Extend(bastionConfigMap)
+		// NOTE: base ssh configuration (ssh {}) extended with bastion ssh configuration (ssh { bastion {} })
+		extendedBastionConfigMap := configMap.Copy()
+		extendedBastionConfigMap.Extend(bastionConfigMap)
 
-			bastion := NewSsh(
-				SshOptionConfigMap(extendedBastionConfigMap),
-				SshOptionNonInteractive(),
-				SshOptionIORedirection("%h", "%p"),
-				SshOptionHost(bastionHost),
-			)
-			command, arguments, _ := bastion.Command()
-			configMap.Set(
-				SshConfigKeyProxyCommand,
-				strings.Join(append([]string{command}, arguments...), " "),
-			)
-		}
+		bastion := NewSsh(
+			SshOptionConfigMap(extendedBastionConfigMap),
+			SshOptionNonInteractive(),
+			SshOptionIORedirection("%h", "%p"),
+			SshOptionHost(bastionHost),
+		)
+		command, arguments, _ := bastion.Command()
+		configMap.Set(
+			SshConfigKeyProxyCommand,
+			strings.Join(append([]string{command}, arguments...), " "),
+		)
 	}
 
 	if configMap.Len() > 0 {
